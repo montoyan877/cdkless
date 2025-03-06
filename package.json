@@ -1,0 +1,60 @@
+{
+  "name": "cdkless",
+  "version": "0.1.0",
+  "description": "Ultra-simplified AWS CDK framework for building serverless microservices",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean",
+    "prepublishOnly": "npm run build",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "docs": "typedoc --out docs src/index.ts"
+  },
+  "keywords": [
+    "aws",
+    "cdk",
+    "serverless",
+    "lambda",
+    "api",
+    "microservices",
+    "infrastructure",
+    "cloud"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/cdkless.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/cdkless/issues"
+  },
+  "homepage": "https://github.com/yourusername/cdkless#readme",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.19.79",
+    "@typescript-eslint/eslint-plugin": "^5.57.1",
+    "@typescript-eslint/parser": "^5.57.1",
+    "eslint": "^8.38.0",
+    "jest": "^29.5.0",
+    "rimraf": "^5.0.0",
+    "ts-jest": "^29.1.0",
+    "typedoc": "^0.24.1",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.182.0",
+    "constructs": "^10.4.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
