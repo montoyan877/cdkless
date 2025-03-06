@@ -214,7 +214,7 @@ Resources are shared automatically. For example, all HTTP endpoints will share a
 
 ## 📄 API Reference
 
-For detailed API documentation, please visit our [API Reference](https://github.com/yourusername/cdkless/blob/main/docs/API.md) page.
+For detailed API documentation, please visit our [API Reference](https://github.com/montoyan877/cdkless/blob/main/docs/API.md) page.
 
 ## 🌟 Core Principles
 
