@@ -2,10 +2,23 @@
 
 [![npm version](https://badge.fury.io/js/cdkless.svg)](https://badge.fury.io/js/cdkless)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status: Beta](https://img.shields.io/badge/Status-Beta-orange.svg)]()
 
 > The simplest way to build serverless microservices with AWS CDK
 
 CdkLess dramatically simplifies the development of serverless microservices on AWS by providing a clean, intuitive API that abstracts away the complexities of the AWS Cloud Development Kit (CDK).
+
+## ⚠️ Beta Status
+
+**CdkLess is currently in beta.** While it's functional and usable, please be aware of the following:
+
+- The API may change without following strict semantic versioning until v1.0
+- Some features are still in development
+- Documentation might be incomplete in some areas
+- Use in production environments at your own risk
+- We welcome feedback, bug reports, and contributions to help stabilize the library
+
+We're actively working to reach a stable 1.0 release and appreciate your understanding and support during this beta phase.
 
 ## 🚀 Installation
 
@@ -61,6 +74,25 @@ class MyMicroservice extends CdkLess {
 new MyMicroservice();
 ```
 
+## 🏛️ Architectural Approach
+
+CdkLess follows a specific architectural pattern:
+
+- **Infrastructure Separation**: The library is designed with the convention that infrastructure (databases, queues, topics, etc.) is managed in a separate CDK project. This separation of concerns allows infrastructure teams to maintain core resources independently.
+
+- **Service Integration**: CdkLess focuses specifically on mounting API Gateway endpoints, Lambda functions, and their triggers by importing existing resources via ARNs. This approach encourages a clean separation between infrastructure and application code.
+
+- **ARN-Based Integration**: Instead of creating infrastructure resources directly, CdkLess connects to existing resources using their ARNs. This pattern promotes infrastructure reuse and better governance of cloud resources.
+
+```typescript
+// Example of connecting to existing infrastructure via ARNs
+this.lambda('src/handlers/orders/process')
+  .post('/orders')
+  .addTable('arn:aws:dynamodb:region:account:table/orders-table')  // Connect to existing DynamoDB table
+  .addSnsTrigger('arn:aws:sns:region:account:topic/order-events')  // Connect to existing SNS topic
+  .addAuthorizer('arn:aws:lambda:region:account:function:custom-authorizer'); // Use existing authorizer
+```
+
 ## 🔍 Key Features
 
 ### 🌐 API Gateway Integration
@@ -112,15 +144,15 @@ Create event-driven microservices with SQS, SNS, and S3 triggers:
 ```typescript
 // SQS Queue consumer
 this.lambda('src/handlers/orders/process-order')
-  .addQueue('arn:aws:sqs:region:account:queue/orders-queue');
+  .addSqsTrigger('arn:aws:sqs:region:account:queue/orders-queue');
 
 // SNS Topic subscriber
 this.lambda('src/handlers/notifications/send-email')
-  .addTrigger('arn:aws:sns:region:account:topic/notifications-topic');
+  .addSnsTrigger('arn:aws:sns:region:account:topic/notifications-topic');
 
 // S3 event handler
 this.lambda('src/handlers/documents/process-upload')
-  .addS3Bucket('arn:aws:s3:region:account:bucket/documents-bucket');
+  .addS3Trigger('arn:aws:s3:region:account:bucket/documents-bucket');
 ```
 
 ### ⚙️ Environment Configuration
@@ -208,6 +240,10 @@ Yes, CdkLess doesn't hide the underlying CDK. You can always access the shared A
 ### How does deployment work?
 
 CdkLess handles the CDK synthesis process automatically when your application runs. Just execute your application with `npm start` and it will deploy to AWS.
+
+### What does the beta status mean for my project?
+
+During the beta phase, we recommend using CdkLess for non-critical projects, proofs of concept, or in environments where you can tolerate potential API changes. We're working hard to stabilize the API for a 1.0 release, but until then, you should expect possible breaking changes between minor versions. We recommend pinning to exact versions in your package.json during the beta period.
 
 ## 📋 Requirements
 
