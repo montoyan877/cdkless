@@ -88,16 +88,15 @@ CdkLess follows a specific architectural pattern:
 // Example of connecting to existing infrastructure via ARNs
 this.lambda('src/handlers/orders/process')
   .post('/orders')
-  .addTable('arn:aws:dynamodb:region:account:table/orders-table')  // Connect to existing DynamoDB table
+  .addTablePermissions('arn:aws:dynamodb:region:account:table/orders-table')  // Connect to existing DynamoDB table
   .addSnsTrigger('arn:aws:sns:region:account:topic/order-events')  // Connect to existing SNS topic
-  .addAuthorizer('arn:aws:lambda:region:account:function:custom-authorizer'); // Use existing authorizer
 ```
 
 ## 🔍 Key Features
 
 ### 🌐 API Gateway Integration
 
-Create REST API endpoints with a fluent interface:
+Create HTTP API endpoints with a fluent interface:
 
 ```typescript
 // GET endpoint
@@ -119,12 +118,43 @@ this.lambda('src/handlers/products/delete-product')
 
 ### 🔐 API Authorization
 
-Secure your endpoints with custom authorizers:
+Secure your endpoints with various types of authorizers:
 
 ```typescript
+import { HttpJwtAuthorizer, HttpLambdaAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import { Function } from 'aws-cdk-lib/aws-lambda';
+
+// Creating a Lambda authorizer
+const authorizerFunction = new Function(this, 'AuthorizerFunction', {
+  // function configuration
+});
+
+const lambdaAuthorizer = new HttpLambdaAuthorizer(
+  'my-lambda-authorizer',
+  authorizerFunction,
+  {
+    authorizerName: 'my-lambda-authorizer',
+    identitySource: ['$request.header.Authorization']
+  }
+);
+
+// Creating a JWT authorizer
+const jwtAuthorizer = new HttpJwtAuthorizer(
+  'my-jwt-authorizer',
+  'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX',
+  {
+    jwtAudience: ['my-app-client-id']
+  }
+);
+
+// Securing routes with authorizers
 this.lambda('src/handlers/admin/dashboard')
   .get('/admin/dashboard')
-  .addAuthorizer('arn:aws:lambda:region:account:function:authorizer');
+  .addAuthorizer(lambdaAuthorizer);
+
+this.lambda('src/handlers/users/profile')
+  .get('/users/profile')
+  .addAuthorizer(jwtAuthorizer, ['profile:read']);
 ```
 
 ### 📊 Database Integration
@@ -134,7 +164,7 @@ Connect to DynamoDB tables using ARNs:
 ```typescript
 this.lambda('src/handlers/orders/create-order')
   .post('/orders')
-  .addTable('arn:aws:dynamodb:region:account:table/orders-table');
+  .addTablePermissions('arn:aws:dynamodb:region:account:table/orders-table');
 ```
 
 ### 📨 Event-Driven Architecture
@@ -247,7 +277,7 @@ During the beta phase, we recommend using CdkLess for non-critical projects, pro
 
 ## 📋 Requirements
 
-- Node.js 20+
+- Node.js 22+
 - AWS CLI configured
 - AWS CDK CLI (`npm install -g aws-cdk`)
 
