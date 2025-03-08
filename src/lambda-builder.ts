@@ -11,7 +11,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
-import { Names, Stack } from 'aws-cdk-lib';
+import { Stack } from 'aws-cdk-lib';
 import { ApiBuilder } from './api-builder';
 
 export interface LambdaBuilderProps {
@@ -101,14 +101,8 @@ export class LambdaBuilder {
     
     // Extract the last segment of the handler path
     this.handlerPath = props.handler;
-    const segments = this.handlerPath.split('/');
-    const lastSegment = segments[segments.length - 1];
-    
-    // Generate resource name (kebab-case)
-    this.resourceName = lastSegment;
-    
-    // Generate ID
-    this.id = Names.uniqueId(this.scope);
+    this.resourceName = this.handlerPath.split('/').pop() || '';
+    this.id = this.resourceName;
     
     // Initialize Lambda registry for this stack if it doesn't exist
     const stackId = this.stack.stackId;
@@ -191,6 +185,15 @@ export class LambdaBuilder {
       },
       environment: this.environmentVars,
     });
+  }
+
+  /**
+   * Sets the name of the Lambda function
+   * @param name Name of the Lambda function
+   */
+  public name(name: string): LambdaBuilder {
+    this.resourceName = name;
+    return this;
   }
 
   /**
