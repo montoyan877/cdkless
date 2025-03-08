@@ -70,6 +70,7 @@ describe("CdkLess Integration Tests", () => {
 
     cdkless
       .lambda("tests/handlers/test-handler")
+      .name("custom-lambda")
       .memory(512)
       .timeout(Duration.seconds(120))
       .environment({
@@ -81,6 +82,7 @@ describe("CdkLess Integration Tests", () => {
     const template = Template.fromStack(stack);
     
     template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "custom-lambda-test",
       MemorySize: 512,
       Timeout: 120,
       Environment: {
