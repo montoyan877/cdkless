@@ -1,6 +1,6 @@
 {
   "name": "cdkless",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.7",
   "description": "Ultra-simplified AWS CDK framework for building serverless microservices",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

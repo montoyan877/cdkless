@@ -32,7 +32,6 @@ describe("CdkLess Integration Tests", () => {
     cdkless.lambda("tests/handlers/test-handler").build();
     
     const stack = cdkless.getStack();
-    cdkless.synth();
     const template = Template.fromStack(stack);
 
     template.hasResourceProperties("AWS::Lambda::Function", {
@@ -50,7 +49,6 @@ describe("CdkLess Integration Tests", () => {
       .build();
 
     const stack = cdkless.getStack();
-    cdkless.synth();
     const template = Template.fromStack(stack);
 
     template.resourceCountIs("AWS::Lambda::Function", 2);
@@ -72,6 +70,7 @@ describe("CdkLess Integration Tests", () => {
 
     cdkless
       .lambda("tests/handlers/test-handler")
+      .name("custom-lambda")
       .memory(512)
       .timeout(Duration.seconds(120))
       .environment({
@@ -80,10 +79,10 @@ describe("CdkLess Integration Tests", () => {
       .build();
     
     const stack = cdkless.getStack();
-    cdkless.synth();
     const template = Template.fromStack(stack);
     
     template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "custom-lambda-test",
       MemorySize: 512,
       Timeout: 120,
       Environment: {
