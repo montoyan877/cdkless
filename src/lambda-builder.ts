@@ -102,7 +102,6 @@ export class LambdaBuilder {
     // Extract the last segment of the handler path
     this.handlerPath = props.handler;
     this.resourceName = this.handlerPath.split("/").pop() || "";
-    this.id = this.resourceName;
 
     // Initialize Lambda registry for this stack if it doesn't exist
     const stackId = this.stack.stackId;
@@ -168,7 +167,7 @@ export class LambdaBuilder {
       throw new Error("Handler path is not defined");
     }
 
-    return new NodejsFunction(this.scope, `${this.id}-function`, {
+    return new NodejsFunction(this.scope, `${this.resourceName}-function`, {
       functionName: `${this.resourceName}-${this.stage}`,
       runtime: this.runtimeValue,
       memorySize: this.memorySize,
@@ -346,7 +345,7 @@ export class LambdaBuilder {
   public addSnsTrigger(topicArn: string, options?: SnsOptions): LambdaBuilder {
     const topic = sns.Topic.fromTopicArn(
       this.scope,
-      `${this.id}-imported-topic-${this.stage}`,
+      `${this.resourceName}-imported-topic-${this.stage}`,
       topicArn
     );
 
@@ -357,7 +356,7 @@ export class LambdaBuilder {
 
     this.lambda.addEventSource(snsEventSource);
 
-    this.lambda.addPermission(`${this.id}-sns-permission-${this.stage}`, {
+    this.lambda.addPermission(`${this.resourceName}-sns-permission-${this.stage}`, {
       principal: new iam.ServicePrincipal("sns.amazonaws.com"),
       sourceArn: topic.topicArn,
     });
@@ -381,7 +380,7 @@ export class LambdaBuilder {
   public addSqsTrigger(queueArn: string, options?: SqsOptions): LambdaBuilder {
     const queue = sqs.Queue.fromQueueArn(
       this.scope,
-      `${this.id}-imported-queue-${this.stage}`,
+      `${this.resourceName}-imported-queue-${this.stage}`,
       queueArn
     );
 
@@ -416,7 +415,7 @@ export class LambdaBuilder {
   public addS3Trigger(bucketArn: string, options?: S3Options): LambdaBuilder {
     const bucket = s3.Bucket.fromBucketArn(
       this.scope,
-      `${this.id}-imported-bucket-${this.stage}`,
+      `${this.resourceName}-imported-bucket-${this.stage}`,
       bucketArn
     );
 
@@ -475,7 +474,7 @@ export class LambdaBuilder {
   public addTablePermissions(tableArn: string): LambdaBuilder {
     const table = dynamodb.Table.fromTableArn(
       this.scope,
-      `${this.id}-imported-table-${this.stage}`,
+      `${this.resourceName}-imported-table-${this.stage}`,
       tableArn
     );
     table.grantReadWriteData(this.lambda);
@@ -546,7 +545,7 @@ export class LambdaBuilder {
     const stackId = this.stack.stackId;
     const lambdaInfos = lambdaRegistry.get(stackId)!;
     lambdaInfos.push({
-      id: this.id,
+      id: this.resourceName,
       lambda: this.lambda,
       triggers: [...this.triggers],
     });
