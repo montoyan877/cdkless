@@ -1,5 +1,6 @@
-import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
+import * as apigatewayv2_integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { Construct } from 'constructs';
 
 export interface ApiBuilderProps {
@@ -7,28 +8,50 @@ export interface ApiBuilderProps {
   id: string;
   apiName?: string;
   description?: string;
-  deployOptions?: apigateway.StageOptions;
-  defaultCorsPreflightOptions?: apigateway.CorsOptions;
+  stageName?: string;
+  useDefaultCors?: boolean;
+  binaryMediaTypes?: string[];
+  disableExecuteApiEndpoint?: boolean;
+}
+
+export interface RouteOptions {
+  authorizer?: apigatewayv2.IHttpRouteAuthorizer;
+  authorizationScopes?: string[];
+  [key: string]: any;
 }
 
 export class ApiBuilder {
-  private api: apigateway.RestApi;
+  private api: apigatewayv2.HttpApi;
   private scope: Construct;
-  private routes: Map<string, apigateway.IResource> = new Map();
+  private stageName: string;
+  private routes: Map<string, string> = new Map();
 
   constructor(props: ApiBuilderProps) {
     this.scope = props.scope;
+    this.stageName = props.stageName || 'default';
     
-    this.api = new apigateway.RestApi(props.scope, props.id, {
-      restApiName: props.apiName || `${props.id}-api`,
+    // Configuración de la API
+    let apiConfig: apigatewayv2.HttpApiProps = {
+      apiName: props.apiName || `${props.id}-api`,
       description: props.description || 'API created with ApiBuilder',
-      deployOptions: props.deployOptions,
-      defaultCorsPreflightOptions: props.defaultCorsPreflightOptions || {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: apigateway.Cors.ALL_METHODS,
-        allowHeaders: ['Content-Type', 'Authorization', 'X-Api-Key']
-      }
-    });
+      disableExecuteApiEndpoint: props.disableExecuteApiEndpoint
+    };
+    
+    // Añadir CORS solo si useDefaultCors no es false explícitamente
+    if (props.useDefaultCors !== false) {
+      // Crear una nueva configuración que incluya CORS
+      apiConfig = {
+        ...apiConfig,
+        corsPreflight: {
+          allowOrigins: ['*'],
+          allowMethods: [apigatewayv2.CorsHttpMethod.ANY],
+          allowHeaders: ['Content-Type', 'Authorization', 'X-Api-Key']
+        }
+      };
+    }
+    
+    // Crear la API con las propiedades configuradas
+    this.api = new apigatewayv2.HttpApi(props.scope, props.id, apiConfig);
   }
 
   /**
@@ -36,69 +59,71 @@ export class ApiBuilder {
    * @param path Path to add
    * @param lambda Lambda function that will handle the route
    * @param method HTTP method (GET, POST, PUT, DELETE)
-   * @param methodOptions Additional method options (authorizers, validations, etc.)
+   * @param options Additional options for the route
    */
-  public addRoute(path: string, lambda: lambda.Function, method: string, methodOptions?: apigateway.MethodOptions): ApiBuilder {
-    // Make sure the path doesn't start with /
-    const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+  public addRoute(
+    path: string, 
+    lambda: lambda.Function, 
+    method: string,
+    options?: RouteOptions
+  ): ApiBuilder {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     
-    // Split the path into segments
-    const segments = normalizedPath.split('/');
-    
-    // Start from the root
-    let currentResource: apigateway.IResource = this.api.root;
-    
-    // Create each segment of the path
-    let fullPath = '';
-    for (const segment of segments) {
-      if (!segment) continue; // Skip empty segments
-      
-      fullPath = fullPath ? `${fullPath}/${segment}` : segment;
-      
-      // Check if we already have this resource created
-      if (this.routes.has(fullPath)) {
-        currentResource = this.routes.get(fullPath)!;
-      } else {
-        // Create a new resource
-        currentResource = currentResource.addResource(segment);
-        this.routes.set(fullPath, currentResource);
-      }
+    let httpMethod: apigatewayv2.HttpMethod;
+    switch (method.toUpperCase()) {
+      case 'GET':
+        httpMethod = apigatewayv2.HttpMethod.GET;
+        break;
+      case 'POST':
+        httpMethod = apigatewayv2.HttpMethod.POST;
+        break;
+      case 'PUT':
+        httpMethod = apigatewayv2.HttpMethod.PUT;
+        break;
+      case 'DELETE':
+        httpMethod = apigatewayv2.HttpMethod.DELETE;
+        break;
+      case 'PATCH':
+        httpMethod = apigatewayv2.HttpMethod.PATCH;
+        break;
+      case 'OPTIONS':
+        httpMethod = apigatewayv2.HttpMethod.OPTIONS;
+        break;
+      case 'HEAD':
+        httpMethod = apigatewayv2.HttpMethod.HEAD;
+        break;
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
     }
     
-    // Add the method to the route
-    const integration = new apigateway.LambdaIntegration(lambda);
+    // Generar un ID estable para la integración que no contenga tokens
+    const integrationId = `${path.replace(/\//g, '-')}-${method.toLowerCase()}-integration`;
     
-    // If method options are provided, use them
-    if (methodOptions) {
-      currentResource.addMethod(method, integration, methodOptions);
-    } else {
-      // Otherwise, use the default configuration
-      currentResource.addMethod(method, integration);
-    }
+    const integration = new apigatewayv2_integrations.HttpLambdaIntegration(
+      integrationId,
+      lambda
+    );
+    
+    const routeConfig: apigatewayv2.AddRoutesOptions = {
+      path: normalizedPath,
+      methods: [httpMethod],
+      integration: integration,
+      ...(options?.authorizer && { authorizer: options.authorizer }),
+    };
+    
+    const routes = this.api.addRoutes(routeConfig);
+    const route = routes[0];
+    
+    this.routes.set(normalizedPath, route.routeId);
     
     return this;
   }
 
   /**
-   * Adds an authorizer to the API
-   * @param authorizerName Name of the authorizer
-   * @param lambda Lambda function that will be used as authorizer
-   * @returns The created request authorizer
-   */
-  public addAuthorizer(authorizerName: string, lambda: lambda.Function): apigateway.RequestAuthorizer {
-    const authorizer = new apigateway.RequestAuthorizer(this.scope, `${authorizerName}Authorizer`, {
-      handler: lambda,
-      identitySources: [apigateway.IdentitySource.header('Authorization')],
-    });
-    
-    return authorizer;
-  }
-
-  /**
    * Returns the API instance
-   * @returns The API Gateway RestApi instance
+   * @returns The API Gateway HttpApi instance
    */
-  public getApi(): apigateway.RestApi {
+  public getApi(): apigatewayv2.HttpApi {
     return this.api;
   }
 
@@ -107,7 +132,7 @@ export class ApiBuilder {
    * @returns The base URL of the API
    */
   public getApiUrl(): string {
-    return this.api.url;
+    return this.api.apiEndpoint;
   }
 
   /**
@@ -118,7 +143,7 @@ export class ApiBuilder {
    */
   public getEndpoint(path: string, stage?: string): string {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const stageUrl = stage ? `/${stage}` : '';
-    return `${this.api.url}${stageUrl}${normalizedPath}`;
+    const stagePath = stage || this.stageName;
+    return `${this.api.apiEndpoint}/${stagePath}${normalizedPath}`;
   }
 } 

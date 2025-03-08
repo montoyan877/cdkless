@@ -65,4 +65,12 @@ export class CdkLess extends cdk.Stack {
   public synth() {
     this.app.synth();
   }
+
+  /**
+   * Returns the stack
+   * @returns The stack
+   */
+  public getStack() {
+    return this;
+  }
 } 

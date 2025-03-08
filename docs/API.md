@@ -96,18 +96,7 @@ this.lambda('src/handlers/users/delete-user')
 
 ### Resource Integration
 
-#### addAuthorizer(authorizerArn: string, options?: AuthorizerOptions): LambdaBuilder
-
-Adds an authorizer to the function's API endpoint.
-
-```typescript
-// Example
-this.lambda('src/handlers/admin/dashboard')
-  .get('/admin/dashboard')
-  .addAuthorizer('arn:aws:lambda:region:account:function:my-authorizer');
-```
-
-#### addTable(tableArn: string): LambdaBuilder
+#### addTablePermissions(tableArn: string): LambdaBuilder
 
 Adds permissions for the function to access a DynamoDB table.
 
@@ -115,7 +104,7 @@ Adds permissions for the function to access a DynamoDB table.
 // Example
 this.lambda('src/handlers/orders/get-orders')
   .get('/orders')
-  .addTable('arn:aws:dynamodb:region:account:table/orders-table');
+  .addTablePermissions('arn:aws:dynamodb:region:account:table/orders-table');
 ```
 
 #### addTrigger(topicArn: string, options?: SnsOptions): LambdaBuilder
@@ -215,13 +204,13 @@ new cdk.CfnOutput(this, 'LambdaArn', {
 
 ## ApiBuilder
 
-A utility class for building REST APIs. Typically used internally by LambdaBuilder, but can be accessed via `getSharedApi()`.
+A utility class for building HTTP APIs. Typically used internally by LambdaBuilder, but can be accessed via `getSharedApi()`.
 
 ### Methods
 
-#### getApi(): apigateway.RestApi
+#### getApi(): apigateway.HttpApi
 
-Returns the underlying API Gateway REST API instance.
+Returns the underlying API Gateway HTTP API instance.
 
 #### getApiUrl(): string
 

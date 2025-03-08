@@ -17,8 +17,7 @@ export type {
   SnsOptions,
   SqsOptions,
   S3Options,
-  PolicyOptions,
-  AuthorizerOptions
+  PolicyOptions
 } from './lambda-builder';
 
 export type {

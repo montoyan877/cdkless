@@ -22,5 +22,5 @@
     "rootDir": "src",
     "esModuleInterop": true
   },
-  "exclude": ["node_modules", "dist", "test", "**/*.test.ts", "examples/**/*"]
-} 
+  "exclude": ["node_modules", "dist", "test", "tests", "**/*.test.ts", "examples/**/*"]
+}
