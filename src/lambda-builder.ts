@@ -13,67 +13,25 @@ import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import { Construct } from "constructs";
 import { Stack } from "aws-cdk-lib";
 import { ApiBuilder } from "./api-builder";
+import { 
+  LambdaBuilderProps, 
+  PolicyOptions, 
+  SnsOptions, 
+  SqsOptions, 
+  S3Options, 
+  LambdaInfo, 
+  TriggerInfo 
+} from './interfaces/lambda';
+import { RouteOptions } from "./interfaces";
 
-export interface LambdaBuilderProps {
-  scope: Construct; // Scope is still required for CDK
-  handler: string; // Only required parameter - path to handler (without extension)
-}
-
-// Interfaces for trigger configuration options
-export interface SnsOptions {
-  filterPolicy?: { [key: string]: sns.SubscriptionFilter };
-  deadLetterQueue?: sqs.IQueue;
-}
-
-export interface SqsOptions {
-  batchSize?: number;
-  maxBatchingWindow?: cdk.Duration;
-  enabled?: boolean;
-  reportBatchItemFailures?: boolean;
-  maxConcurrency?: number;
-}
-
-export interface S3Options {
-  events?: s3.EventType[];
-  filters?: s3.NotificationKeyFilter[];
-  prefix?: string;
-  suffix?: string;
-}
-
-// Interface for IAM policy configuration options
-export interface PolicyOptions {
-  includeSubResources?: boolean; // If true, also adds `${arn}/*` as a resource
-  effect?: iam.Effect; // Effect.ALLOW by default
-}
-
-// Interface to store trigger information
-interface TriggerInfo {
-  type: "sns" | "sqs" | "s3" | "api";
-  resourceArn?: string;
-  resourceName?: string;
-  method?: string;
-  path?: string;
-}
-
-// Interface to store Lambda information
-interface LambdaInfo {
-  id: string;
-  lambda: lambda.Function;
-  triggers: TriggerInfo[];
-}
-
-// Global store for shared APIs (per stack)
-const sharedApis = new Map<string, ApiBuilder>();
-
-// Global store for all created Lambdas (per stack)
 const lambdaRegistry = new Map<string, LambdaInfo[]>();
+const sharedApis = new Map<string, ApiBuilder>();
 
 export class LambdaBuilder {
   private lambda: lambda.Function;
   private method?: string;
   private path?: string;
   private scope: Construct;
-  private id: string;
   private resourceName: string;
   private environmentVars: { [key: string]: string } = {
     STAGE: process.env.STAGE || "",
@@ -101,7 +59,6 @@ export class LambdaBuilder {
 
     // Extract the last segment of the handler path
     this.handlerPath = props.handler;
-    this.resourceName = this.handlerPath.split("/").pop() || "";
 
     // Initialize Lambda registry for this stack if it doesn't exist
     const stackId = this.stack.stackId;
@@ -162,17 +119,28 @@ export class LambdaBuilder {
    * Creates a NodejsFunction with the current configuration values
    */
   private createNodejsFunction(): lambda.Function {
-    // Asegurarnos de que tenemos un handlerPath definido
     if (!this.handlerPath) {
       throw new Error("Handler path is not defined");
     }
+
+    if (!this.resourceName) {
+      throw new Error("Resource name is not defined");
+    }
+
+    const logGroup = new logs.LogGroup(
+      this.scope,
+      `${this.resourceName}-log-group`,
+      {
+        retention: this.logRetentionDays,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }
+    );
 
     return new NodejsFunction(this.scope, `${this.resourceName}-function`, {
       functionName: `${this.resourceName}-${this.stage}`,
       runtime: this.runtimeValue,
       memorySize: this.memorySize,
       timeout: this.timeoutDuration,
-      logRetention: this.logRetentionDays,
       entry: `${this.handlerPath}.ts`,
       handler: "handler",
       bundling: {
@@ -181,6 +149,7 @@ export class LambdaBuilder {
         sourceMap: true,
       },
       environment: this.environmentVars,
+      logGroup,
     });
   }
 
@@ -356,10 +325,13 @@ export class LambdaBuilder {
 
     this.lambda.addEventSource(snsEventSource);
 
-    this.lambda.addPermission(`${this.resourceName}-sns-permission-${this.stage}`, {
-      principal: new iam.ServicePrincipal("sns.amazonaws.com"),
-      sourceArn: topic.topicArn,
-    });
+    this.lambda.addPermission(
+      `${this.resourceName}-sns-permission-${this.stage}`,
+      {
+        principal: new iam.ServicePrincipal("sns.amazonaws.com"),
+        sourceArn: topic.topicArn,
+      }
+    );
 
     const topicName = topicArn.split(":").pop() || "unknown-topic";
 
@@ -517,7 +489,7 @@ export class LambdaBuilder {
     if (this.method && this.path) {
       const sharedApi = this.getOrCreateSharedApi();
 
-      const routeOptions: any = {};
+      const routeOptions: RouteOptions = {};
 
       if (this.authorizer) {
         routeOptions.authorizer = this.authorizer;
@@ -550,7 +522,7 @@ export class LambdaBuilder {
       triggers: [...this.triggers],
     });
 
-    this.generateCfnOutputs();
+    if (process.env.NODE_ENV !== "cdk-less-test") this.generateCfnOutputs();
 
     this.isBuilt = true;
     return this.lambda;
@@ -564,67 +536,17 @@ export class LambdaBuilder {
       const lambdaInfos = lambdaRegistry.get(stackId)!;
       const sharedApi = sharedApis.get(stackId);
 
-      if (!sharedApi) return;
-
-      // Solo crear CfnOutput si no estamos en un entorno de prueba
-      if (process.env.NODE_ENV !== "test") {
-        try {
-          // Generate a CfnOutput for the API base URL
-          new cdk.CfnOutput(this.scope, `ApiGatewayUrl-${this.stage}`, {
-            value: sharedApi.getApiUrl(),
-            description: `Shared API Gateway base URL - ${this.stage}`,
-          });
-        } catch (error) {
-          console.warn("Unable to create CfnOutput for API URL:", error);
-        }
-      }
-
-      // Generate CfnOutputs for each Lambda and its triggers
-      lambdaInfos.forEach((lambdaInfo) => {
-        const id = lambdaInfo.id;
-        const triggers = lambdaInfo.triggers;
-
-        // Generate trigger details
-        const triggerDetails = triggers
-          .map((trigger) => {
-            switch (trigger.type) {
-              case "api":
-                return `Lambda: [${id}] -> ${
-                  trigger.method
-                } ${sharedApi.getEndpoint(trigger.path || "")}`;
-              case "sns":
-                return `Lambda: [${id}] -> TRIGGERED by SNS [${trigger.resourceName}]`;
-              case "sqs":
-                return `Lambda: [${id}] -> TRIGGERED by SQS [${trigger.resourceName}]`;
-              case "s3":
-                return `Lambda: [${id}] -> TRIGGERED by S3 [${trigger.resourceName}]`;
-              default:
-                return "";
-            }
-          })
-          .filter((text) => text !== "");
-
-        if (triggerDetails.length > 0) {
-          // Solo crear CfnOutput si no estamos en un entorno de prueba
-          if (process.env.NODE_ENV !== "test") {
-            try {
-              new cdk.CfnOutput(
-                this.scope,
-                `Lambda${id}Triggers-${this.stage}`,
-                {
-                  value: triggerDetails.join("\n"),
-                  description: `Triggers for Lambda ${id} - ${this.stage}`,
-                }
-              );
-            } catch (error) {
-              console.warn(
-                `Unable to create CfnOutput for Lambda ${id} triggers:`,
-                error
-              );
-            }
-          }
-        }
-      });
+      // Importar la función generadora de outputs formateados
+      const { generateFormattedOutputs } = require('./utils/output-formatter');
+      
+      // Generar outputs formateados
+      generateFormattedOutputs(
+        this.scope,
+        this.stack,
+        lambdaInfos,
+        sharedApi,
+        this.stage
+      );
     });
   }
 

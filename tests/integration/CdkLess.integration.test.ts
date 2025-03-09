@@ -2,39 +2,22 @@ import { Template } from "aws-cdk-lib/assertions";
 import { Duration } from "aws-cdk-lib";
 import { CdkLess } from "../../src";
 
-const originalProcessOn = process.on;
-process.on = function mockProcessOn(
-  event: string,
-  listener: (...args: any[]) => void
-) {
-  if (event === "beforeExit") {
-    return process;
-  }
-  return originalProcessOn.call(process, event, listener);
-} as any;
-
-beforeAll(() => {
-  process.env.NODE_ENV = "test";
-});
-
-afterAll(() => {
-  process.on = originalProcessOn;
-});
-
 describe("CdkLess Integration Tests", () => {
   beforeEach(() => {
     process.env.STAGE = "test";
+    process.env.NODE_ENV = "cdk-less-test";
   });
 
   test("Simple Lambda stack is created correctly", () => {
     const cdkless = new CdkLess("test-app");
 
-    cdkless.lambda("tests/handlers/test-handler").build();
-    
+    cdkless.lambda("tests/handlers/test-handler").name("test-lambda").build();
+
     const stack = cdkless.getStack();
     const template = Template.fromStack(stack);
 
     template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "test-lambda-test",
       Handler: "index.handler",
       Runtime: "nodejs22.x",
     });
@@ -45,14 +28,14 @@ describe("CdkLess Integration Tests", () => {
 
     cdkless
       .lambda("tests/handlers/test-handler")
+      .name("test-lambda")
       .get("/test-path")
       .build();
 
     const stack = cdkless.getStack();
     const template = Template.fromStack(stack);
 
-    template.resourceCountIs("AWS::Lambda::Function", 2);
-
+    template.resourceCountIs("AWS::Lambda::Function", 1);
     template.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
 
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
@@ -77,10 +60,10 @@ describe("CdkLess Integration Tests", () => {
         TEST_ENV_VAR: "test-value",
       })
       .build();
-    
+
     const stack = cdkless.getStack();
     const template = Template.fromStack(stack);
-    
+
     template.hasResourceProperties("AWS::Lambda::Function", {
       FunctionName: "custom-lambda-test",
       MemorySize: 512,

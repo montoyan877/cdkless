@@ -1,32 +1,6 @@
-import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigatewayv2_integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import { Construct } from "constructs";
-
-export interface ApiBuilderProps {
-  scope: Construct;
-  id: string;
-  apiName?: string;
-  description?: string;
-  stageName?: string;
-  useDefaultCors?: boolean;
-  binaryMediaTypes?: string[];
-  disableExecuteApiEndpoint?: boolean;
-}
-
-export interface Route {
-  path: string;
-  resourceName: string;
-  lambda: lambda.Function;
-  method: string;
-  options?: RouteOptions;
-}
-
-export interface RouteOptions {
-  authorizer?: apigatewayv2.IHttpRouteAuthorizer;
-  authorizationScopes?: string[];
-  [key: string]: any;
-}
+import { ApiBuilderProps, Route } from "./interfaces/api/api-interfaces";
 
 export class ApiBuilder {
   private api: apigatewayv2.HttpApi;
