@@ -59,6 +59,7 @@ export class LambdaBuilder {
 
     // Extract the last segment of the handler path
     this.handlerPath = props.handler;
+    this.resourceName = this.handlerPath.split("/").pop() || "";
 
     // Initialize Lambda registry for this stack if it doesn't exist
     const stackId = this.stack.stackId;
@@ -121,10 +122,6 @@ export class LambdaBuilder {
   private createNodejsFunction(): lambda.Function {
     if (!this.handlerPath) {
       throw new Error("Handler path is not defined");
-    }
-
-    if (!this.resourceName) {
-      throw new Error("Resource name is not defined");
     }
 
     const logGroup = new logs.LogGroup(
