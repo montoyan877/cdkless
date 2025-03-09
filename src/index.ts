@@ -18,8 +18,10 @@ export type {
   SqsOptions,
   S3Options,
   PolicyOptions
-} from './lambda-builder';
+} from './interfaces/lambda';
 
 export type {
   ApiBuilderProps
-} from './api-builder'; 
+} from './interfaces/api';
+
+// No exportamos las interfaces de formateo ya que son de uso interno 

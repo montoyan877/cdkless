@@ -287,4 +287,22 @@ We welcome contributions! Please feel free to submit a Pull Request.
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Resource Visualization
+
+CdkLess provides an elegant way to visualize deployed resources with a beautiful format in the terminal. This functionality is directly integrated into the framework and is automatically activated during deployment.
+
+### Visualization Features
+
+When you deploy a stack with CDKless, you'll automatically see a detailed summary of all deployed resources:
+
+- 🚀 Stack and stage summary
+- 📊 Resource count by type (Lambdas, API endpoints, SNS Topics, etc.)
+- 🌐 API Gateway URL
+- ⚡ Details of each Lambda function:
+  - Configuration (memory, timeout)
+  - Environment variables
+  - Configured triggers
+
+This visual format makes it much easier to understand which resources have been deployed and how they are configured. 
