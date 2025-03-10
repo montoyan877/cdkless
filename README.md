@@ -29,6 +29,7 @@ npm install cdkless aws-cdk-lib constructs
 ## 🎯 Why CdkLess?
 
 CdkLess was created for development teams that need to:
+
 - Build and deploy microservices quickly without deep AWS expertise
 - Maintain consistent infrastructure patterns across multiple services
 - Focus on business logic rather than infrastructure code
@@ -36,12 +37,12 @@ CdkLess was created for development teams that need to:
 
 ## 📊 Comparison with Standard CDK
 
-| Standard CDK | CdkLess |
-|--------------|---------|
-| ~200 lines of code | ~15 lines of code |
-| 4+ files per service | 1 file per service |
-| Steep learning curve | Minutes to learn |
-| Complex to maintain | Simple maintenance |
+| Standard CDK                | CdkLess                        |
+| --------------------------- | ------------------------------ |
+| ~200 lines of code          | ~15 lines of code              |
+| 4+ files per service        | 1 file per service             |
+| Steep learning curve        | Minutes to learn               |
+| Complex to maintain         | Simple maintenance             |
 | Requires deep AWS knowledge | Minimal AWS knowledge required |
 
 ## 📋 Quick Start
@@ -52,26 +53,20 @@ Create a fully functional serverless microservice in **just one file**:
 // src/app.ts
 import { CdkLess } from 'cdkless';
 
-class MyMicroservice extends CdkLess {
-  constructor() {
-    super('user-service');
-    
-    // Create a Lambda function with a GET endpoint
-    this.lambda('src/handlers/users/get-users')
-      .get('/users');
-      
-    // Create a Lambda function with a POST endpoint and environment variables
-    this.lambda('src/handlers/users/create-user')
-      .post('/users')
-      .environment({
-        TABLE_NAME: 'users-table',
-        STAGE: this.stage
-      });
-  }
-}
+const app = new CdkLess("user-services");
+app.lambda('src/handlers/users/get-users')
+   .get('/users');
+
+app.lambda('src/handlers/users/create-user')
+    .post('/users');
+
+app.lambda('src/handlers/users/delete-user')
+    .delete('/users');
+
+app.lambda('src/handlers/users/update-user')
+    .put('/users');
 
 // That's it! Just instantiate your microservice
-new MyMicroservice();
 ```
 
 ## 🏛️ Architectural Approach
@@ -86,10 +81,10 @@ CdkLess follows a specific architectural pattern:
 
 ```typescript
 // Example of connecting to existing infrastructure via ARNs
-this.lambda('src/handlers/orders/process')
-  .post('/orders')
-  .addTablePermissions('arn:aws:dynamodb:region:account:table/orders-table')  // Connect to existing DynamoDB table
-  .addSnsTrigger('arn:aws:sns:region:account:topic/order-events')  // Connect to existing SNS topic
+app.lambda("src/handlers/orders/process")
+  .post("/orders")
+  .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table") // Connect to existing DynamoDB table
+  .addSnsTrigger("arn:aws:sns:region:account:topic/order-events"); // Connect to existing SNS topic
 ```
 
 ## 🔍 Key Features
@@ -100,20 +95,16 @@ Create HTTP API endpoints with a fluent interface:
 
 ```typescript
 // GET endpoint
-this.lambda('src/handlers/products/get-product')
-  .get('/products/:id');
+app.lambda("src/handlers/products/get-product").get("/products/:id");
 
 // POST endpoint
-this.lambda('src/handlers/products/create-product')
-  .post('/products');
+app.lambda("src/handlers/products/create-product").post("/products");
 
 // PUT endpoint
-this.lambda('src/handlers/products/update-product')
-  .put('/products/:id');
+app.lambda("src/handlers/products/update-product").put("/products/:id");
 
 // DELETE endpoint
-this.lambda('src/handlers/products/delete-product')
-  .delete('/products/:id');
+app.lambda("src/handlers/products/delete-product").delete("/products/:id");
 ```
 
 ### 🔐 API Authorization
@@ -121,40 +112,43 @@ this.lambda('src/handlers/products/delete-product')
 Secure your endpoints with various types of authorizers:
 
 ```typescript
-import { HttpJwtAuthorizer, HttpLambdaAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
-import { Function } from 'aws-cdk-lib/aws-lambda';
+import {
+  HttpJwtAuthorizer,
+  HttpLambdaAuthorizer,
+} from "aws-cdk-lib/aws-apigatewayv2-authorizers";
+import { Function } from "aws-cdk-lib/aws-lambda";
 
 // Creating a Lambda authorizer
-const authorizerFunction = new Function(this, 'AuthorizerFunction', {
+const authorizerFunction = new Function(this, "AuthorizerFunction", {
   // function configuration
 });
 
 const lambdaAuthorizer = new HttpLambdaAuthorizer(
-  'my-lambda-authorizer',
+  "my-lambda-authorizer",
   authorizerFunction,
   {
-    authorizerName: 'my-lambda-authorizer',
-    identitySource: ['$request.header.Authorization']
+    authorizerName: "my-lambda-authorizer",
+    identitySource: ["$request.header.Authorization"],
   }
 );
 
 // Creating a JWT authorizer
 const jwtAuthorizer = new HttpJwtAuthorizer(
-  'my-jwt-authorizer',
-  'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX',
+  "my-jwt-authorizer",
+  "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX",
   {
-    jwtAudience: ['my-app-client-id']
+    jwtAudience: ["my-app-client-id"],
   }
 );
 
 // Securing routes with authorizers
-this.lambda('src/handlers/admin/dashboard')
-  .get('/admin/dashboard')
+app.lambda("src/handlers/admin/dashboard")
+  .get("/admin/dashboard")
   .addAuthorizer(lambdaAuthorizer);
 
-this.lambda('src/handlers/users/profile')
-  .get('/users/profile')
-  .addAuthorizer(jwtAuthorizer, ['profile:read']);
+app.lambda("src/handlers/users/profile")
+  .get("/users/profile")
+  .addAuthorizer(jwtAuthorizer, ["profile:read"]);
 ```
 
 ### 📊 Database Integration
@@ -162,9 +156,9 @@ this.lambda('src/handlers/users/profile')
 Connect to DynamoDB tables using ARNs:
 
 ```typescript
-this.lambda('src/handlers/orders/create-order')
-  .post('/orders')
-  .addTablePermissions('arn:aws:dynamodb:region:account:table/orders-table');
+app.lambda("src/handlers/orders/create-order")
+  .post("/orders")
+  .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table");
 ```
 
 ### 📨 Event-Driven Architecture
@@ -173,16 +167,19 @@ Create event-driven microservices with SQS, SNS, and S3 triggers:
 
 ```typescript
 // SQS Queue consumer
-this.lambda('src/handlers/orders/process-order')
-  .addSqsTrigger('arn:aws:sqs:region:account:queue/orders-queue');
+app.lambda("src/handlers/orders/process-order").addSqsTrigger(
+  "arn:aws:sqs:region:account:queue/orders-queue"
+);
 
 // SNS Topic subscriber
-this.lambda('src/handlers/notifications/send-email')
-  .addSnsTrigger('arn:aws:sns:region:account:topic/notifications-topic');
+app.lambda("src/handlers/notifications/send-email").addSnsTrigger(
+  "arn:aws:sns:region:account:topic/notifications-topic"
+);
 
 // S3 event handler
-this.lambda('src/handlers/documents/process-upload')
-  .addS3Trigger('arn:aws:s3:region:account:bucket/documents-bucket');
+app.lambda("src/handlers/documents/process-upload").addS3Trigger(
+  "arn:aws:s3:region:account:bucket/documents-bucket"
+);
 ```
 
 ### ⚙️ Environment Configuration
@@ -190,13 +187,11 @@ this.lambda('src/handlers/documents/process-upload')
 Add environment variables to your Lambda functions:
 
 ```typescript
-this.lambda('src/handlers/payment/process')
-  .post('/payments')
-  .environment({
-    PAYMENT_API_KEY: 'secret-key',
-    STAGE: this.stage,
-    LOG_LEVEL: 'INFO'
-  });
+app.lambda("src/handlers/payment/process").post("/payments").environment({
+  PAYMENT_API_KEY: "secret-key",
+  STAGE: this.stage,
+  LOG_LEVEL: "INFO",
+});
 ```
 
 By default, CdkLess uses the `STAGE` environment variable to determine the deployment stage (e.g., 'dev', 'staging', 'prod'). If not set, it defaults to 'dev'.
@@ -211,14 +206,14 @@ Each Lambda function should handle a specific task. For example:
 
 ```typescript
 // User service
-this.lambda('src/handlers/users/get-user').get('/users/:id');
-this.lambda('src/handlers/users/create-user').post('/users');
-this.lambda('src/handlers/users/update-user').put('/users/:id');
-this.lambda('src/handlers/users/delete-user').delete('/users/:id');
+app.lambda("src/handlers/users/get-user").get("/users/:id");
+app.lambda("src/handlers/users/create-user").post("/users");
+app.lambda("src/handlers/users/update-user").put("/users/:id");
+app.lambda("src/handlers/users/delete-user").delete("/users/:id");
 
 // Order service
-this.lambda('src/handlers/orders/get-order').get('/orders/:id');
-this.lambda('src/handlers/orders/create-order').post('/orders');
+app.lambda("src/handlers/orders/get-order").get("/orders/:id");
+app.lambda("src/handlers/orders/create-order").post("/orders");
 ```
 
 ### 2. Domain-Driven Design
@@ -305,4 +300,4 @@ When you deploy a stack with CDKless, you'll automatically see a detailed summar
   - Environment variables
   - Configured triggers
 
-This visual format makes it much easier to understand which resources have been deployed and how they are configured. 
+This visual format makes it much easier to understand which resources have been deployed and how they are configured.
