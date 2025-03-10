@@ -1,9 +1,5 @@
-import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { LambdaBuilder } from './lambda-builder';
-import { execSync } from 'child_process';
-import * as chalk from 'chalk';
-import { displayDeploymentSummary } from './utils/terminal-formatter';
+import * as cdk from "aws-cdk-lib";
+import { LambdaBuilder } from "./lambda-builder";
 
 /**
  * Base class that provides simplified methods
@@ -12,7 +8,7 @@ import { displayDeploymentSummary } from './utils/terminal-formatter';
 export class CdkLess extends cdk.Stack {
   private app: cdk.App;
   protected stage: string;
-  
+
   /**
    * Simplified constructor that only requires the application name
    * @param appName Name of the application
@@ -20,24 +16,19 @@ export class CdkLess extends cdk.Stack {
    * @param props Additional Stack properties (optional)
    */
   constructor(appName: string, stage?: string, props?: cdk.StackProps) {
-    // Automatically create App instance
     const app = new cdk.App();
-    const actualStage = stage || process.env.STAGE || 'dev';
-    
-    // Build stack ID using app name and stage
-    const stackId = `${appName}-${actualStage}`;
-    
-    // Call the cdk.Stack constructor
+    const actualStage = stage || process.env.STAGE || "";
+
+    const stackId =
+      actualStage.length > 0 ? `${appName}-${actualStage}` : appName;
+
     super(app, stackId, props);
-    
-    // Store references
+
     this.app = app;
     this.stage = actualStage;
-    
-    // Register a hook to automatically synthesize when the process ends
-    process.on('beforeExit', () => {
+
+    process.on("beforeExit", () => {
       this.synth();
-      this.showDeploymentInfo();
     });
   }
 
@@ -49,9 +40,9 @@ export class CdkLess extends cdk.Stack {
   public lambda(handler: string): LambdaBuilder {
     const lambdaBuilder = new LambdaBuilder({
       scope: this,
-      handler
+      handler,
     });
-    
+
     return lambdaBuilder;
   }
 
@@ -60,7 +51,7 @@ export class CdkLess extends cdk.Stack {
    * @returns The shared ApiBuilder instance or undefined if none exists
    */
   public getSharedApi() {
-    return LambdaBuilder.getSharedApi(this);
+    return LambdaBuilder.getSharedApi();
   }
 
   /**
@@ -77,35 +68,4 @@ export class CdkLess extends cdk.Stack {
   public getStack() {
     return this;
   }
-
-  /**
-   * Shows detailed information about the deployment
-   * This function is called automatically after synthesis
-   * to provide a clear view of deployed resources
-   */
-  private showDeploymentInfo() {
-    try {
-      console.log(chalk.cyan('\n🔍 Retrieving deployment information...\n'));
-      
-      // Get the stack name
-      const stackName = this.stackName;
-      
-      // Try to get the information from CloudFormation output
-      const result = execSync(
-        `aws cloudformation describe-stacks --stack-name ${stackName} --query "Stacks[0].Outputs[?Description==\`COMPLETE_DEPLOYMENT_INFO\`].Value" --output text`,
-        { encoding: 'utf-8' }
-      );
-      
-      if (result && result.trim()) {
-        // Show the formatted information
-        displayDeploymentSummary(result.trim());
-      } else {
-        console.log(chalk.yellow('⚠️ No detailed deployment information found.'));
-        console.log(chalk.yellow('This may be because the stack has not been deployed to AWS yet.'));
-      }
-    } catch (error) {
-      console.log(chalk.yellow('⚠️ Could not retrieve detailed deployment information.'));
-      console.log(chalk.yellow('Run the deployment with: cdk deploy'));
-    }
-  }
-} 
+}

@@ -13,19 +13,16 @@ import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import { Construct } from "constructs";
 import { Stack } from "aws-cdk-lib";
 import { ApiBuilder } from "./api-builder";
-import { 
-  LambdaBuilderProps, 
-  PolicyOptions, 
-  SnsOptions, 
-  SqsOptions, 
-  S3Options, 
-  LambdaInfo, 
-  TriggerInfo 
-} from './interfaces/lambda';
+import {
+  LambdaBuilderProps,
+  PolicyOptions,
+  SnsOptions,
+  SqsOptions,
+  S3Options,
+} from "./interfaces/lambda";
 import { RouteOptions } from "./interfaces";
 
-const lambdaRegistry = new Map<string, LambdaInfo[]>();
-const sharedApis = new Map<string, ApiBuilder>();
+let sharedApi: ApiBuilder;
 
 export class LambdaBuilder {
   private lambda: lambda.Function;
@@ -37,7 +34,6 @@ export class LambdaBuilder {
     STAGE: process.env.STAGE || "",
   };
   private stack: Stack;
-  private triggers: TriggerInfo[] = [];
   private stage: string;
   private isBuilt = false;
   private isAutoBuilding = false;
@@ -60,12 +56,6 @@ export class LambdaBuilder {
     // Extract the last segment of the handler path
     this.handlerPath = props.handler;
     this.resourceName = this.handlerPath.split("/").pop() || "";
-
-    // Initialize Lambda registry for this stack if it doesn't exist
-    const stackId = this.stack.stackId;
-    if (!lambdaRegistry.has(stackId)) {
-      lambdaRegistry.set(stackId, []);
-    }
 
     // Create a proxy to handle automatic building
     return new Proxy(this, {
@@ -133,8 +123,13 @@ export class LambdaBuilder {
       }
     );
 
+    const functionName =
+      this.stage.length > 0
+        ? `${this.resourceName}-${this.stage}`
+        : this.resourceName;
+
     return new NodejsFunction(this.scope, `${this.resourceName}-function`, {
-      functionName: `${this.resourceName}-${this.stage}`,
+      functionName: functionName,
       runtime: this.runtimeValue,
       memorySize: this.memorySize,
       timeout: this.timeoutDuration,
@@ -210,56 +205,24 @@ export class LambdaBuilder {
   public get(path: string): LambdaBuilder {
     this.method = "GET";
     this.path = path;
-
-    // Register the API trigger
-    this.triggers.push({
-      type: "api",
-      method: "GET",
-      path: path,
-    });
-
     return this;
   }
 
   public post(path: string): LambdaBuilder {
     this.method = "POST";
     this.path = path;
-
-    // Register the API trigger
-    this.triggers.push({
-      type: "api",
-      method: "POST",
-      path: path,
-    });
-
     return this;
   }
 
   public put(path: string): LambdaBuilder {
     this.method = "PUT";
     this.path = path;
-
-    // Register the API trigger
-    this.triggers.push({
-      type: "api",
-      method: "PUT",
-      path: path,
-    });
-
     return this;
   }
 
   public delete(path: string): LambdaBuilder {
     this.method = "DELETE";
     this.path = path;
-
-    // Register the API trigger
-    this.triggers.push({
-      type: "api",
-      method: "DELETE",
-      path: path,
-    });
-
     return this;
   }
 
@@ -330,14 +293,6 @@ export class LambdaBuilder {
       }
     );
 
-    const topicName = topicArn.split(":").pop() || "unknown-topic";
-
-    this.triggers.push({
-      type: "sns",
-      resourceArn: topicArn,
-      resourceName: topicName,
-    });
-
     return this;
   }
 
@@ -364,14 +319,6 @@ export class LambdaBuilder {
     this.lambda.addEventSource(sqsEventSource);
 
     queue.grantConsumeMessages(this.lambda);
-
-    const queueName = queueArn.split(":").pop() || "unknown-queue";
-
-    this.triggers.push({
-      type: "sqs",
-      resourceArn: queueArn,
-      resourceName: queueName,
-    });
 
     return this;
   }
@@ -426,17 +373,6 @@ export class LambdaBuilder {
       })
     );
 
-    const bucketName =
-      bucketArn.split(":").pop() ||
-      bucketArn.split(":::").pop() ||
-      "unknown-bucket";
-
-    this.triggers.push({
-      type: "s3",
-      resourceArn: bucketArn,
-      resourceName: bucketName,
-    });
-
     return this;
   }
 
@@ -455,22 +391,23 @@ export class LambdaBuilder {
    * @returns An instance of ApiBuilder
    */
   private getOrCreateSharedApi(): ApiBuilder {
-    const stackId = this.stack.stackId;
+    if (sharedApi) return sharedApi;
 
-    if (sharedApis.has(stackId)) {
-      return sharedApis.get(stackId)!;
-    }
+    const apiName =
+      this.stage.length > 0
+        ? `${this.stack.stackName}-api-${this.stage}`
+        : `${this.stack.stackName}-api`;
 
     const apiBuilder = new ApiBuilder({
       scope: this.scope,
-      id: `${this.stack.stackName}-api-${this.stage}`,
-      apiName: `${this.stack.stackName}-api-${this.stage}`,
+      id: apiName,
+      apiName: apiName,
       description: `Shared API created automatically - ${this.stage}`,
       stageName: this.stage,
       useDefaultCors: true,
     });
 
-    sharedApis.set(stackId, apiBuilder);
+    sharedApi = apiBuilder;
 
     return apiBuilder;
   }
@@ -480,7 +417,6 @@ export class LambdaBuilder {
       return this.lambda;
     }
 
-    // Crear o recrear el Lambda con las configuraciones actualizadas
     this.lambda = this.createNodejsFunction();
 
     if (this.method && this.path) {
@@ -499,60 +435,17 @@ export class LambdaBuilder {
         method: this.method,
         options: routeOptions,
       });
-
-      this.triggers = this.triggers.map((trigger) => {
-        if (trigger.type === "api") {
-          return {
-            ...trigger,
-            resourceArn: sharedApi.getApiUrl(),
-          };
-        }
-        return trigger;
-      });
     }
-
-    const stackId = this.stack.stackId;
-    const lambdaInfos = lambdaRegistry.get(stackId)!;
-    lambdaInfos.push({
-      id: this.resourceName,
-      lambda: this.lambda,
-      triggers: [...this.triggers],
-    });
-
-    if (process.env.NODE_ENV !== "cdk-less-test") this.generateCfnOutputs();
 
     this.isBuilt = true;
     return this.lambda;
-  }
-
-  private generateCfnOutputs(): void {
-    // We don't know yet if this is the last Lambda, so schedule the generation
-    // to happen after all Lambdas have been created
-    process.nextTick(() => {
-      const stackId = this.stack.stackId;
-      const lambdaInfos = lambdaRegistry.get(stackId)!;
-      const sharedApi = sharedApis.get(stackId);
-
-      // Importar la función generadora de outputs formateados
-      const { generateFormattedOutputs } = require('./utils/output-formatter');
-      
-      // Generar outputs formateados
-      generateFormattedOutputs(
-        this.scope,
-        this.stack,
-        lambdaInfos,
-        sharedApi,
-        this.stage
-      );
-    });
   }
 
   public getLambda(): lambda.Function {
     return this.lambda;
   }
 
-  public static getSharedApi(scope: Construct): ApiBuilder | undefined {
-    const stack = Stack.of(scope);
-    return sharedApis.get(stack.stackId);
+  static getSharedApi(): ApiBuilder | undefined {
+    return sharedApi;
   }
 }

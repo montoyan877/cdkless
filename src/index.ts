@@ -23,5 +23,3 @@ export type {
 export type {
   ApiBuilderProps
 } from './interfaces/api';
-
-// No exportamos las interfaces de formateo ya que son de uso interno 
