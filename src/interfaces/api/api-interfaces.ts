@@ -27,6 +27,5 @@ export interface Route {
 
 export interface RouteOptions {
   authorizer?: apigatewayv2.IHttpRouteAuthorizer;
-  authorizationScopes?: string[];
   [key: string]: any;
 }

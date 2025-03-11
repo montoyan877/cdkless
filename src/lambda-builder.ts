@@ -393,10 +393,9 @@ export class LambdaBuilder {
   private getOrCreateSharedApi(): ApiBuilder {
     if (sharedApi) return sharedApi;
 
+    const appName = this.stack.stackName.replace(`-${this.stage}`, "");
     const apiName =
-      this.stage.length > 0
-        ? `${this.stack.stackName}-api-${this.stage}`
-        : `${this.stack.stackName}-api`;
+      this.stage.length > 0 ? `${appName}-api-${this.stage}` : `${appName}-api`;
 
     const apiBuilder = new ApiBuilder({
       scope: this.scope,

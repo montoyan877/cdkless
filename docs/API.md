@@ -1,221 +1,793 @@
-# CdkLess API Reference
+# CDKless API Reference
 
-This document provides detailed information about the CdkLess API.
+This document provides detailed information about the CDKless API, showing various ways to interact with the framework.
 
-## CdkLess
+## Table of Contents
+
+- [Core Classes](#core-classes)
+  - [CdkLess](#cdkless)
+  - [LambdaBuilder](#lambdabuilder)
+  - [ApiBuilder](#apibuilder)
+- [Lambda Configuration](#lambda-configuration)
+- [API Gateway Integration](#api-gateway-integration)
+- [Event Sources](#event-sources)
+- [Resource Permissions](#resource-permissions)
+- [Interfaces Reference](#interfaces-reference)
+
+## Core Classes
+
+### CdkLess
 
 The main class that extends AWS CDK's Stack class and provides simplified methods for defining serverless microservices.
 
-### Constructor
+#### Constructor
 
 ```typescript
 constructor(appName: string, stage?: string, props?: cdk.StackProps)
 ```
 
-- `appName`: Name of the application
+**Parameters:**
+- `appName`: Name of the application (used to construct the stack name)
 - `stage`: Deployment environment (default: process.env.STAGE || 'dev')
 - `props`: Additional Stack properties (optional)
 
-### Properties
+**Example:**
+```typescript
+import { CdkLess } from 'cdkless';
+
+// Basic usage with automatic stage detection
+const app = new CdkLess("user-service");
+
+// Explicit stage specification
+const prodApp = new CdkLess("user-service", "prod");
+
+// With additional stack properties
+const customApp = new CdkLess("user-service", "dev", {
+  env: { 
+    account: '123456789012', 
+    region: 'us-east-1' 
+  },
+  description: 'User service for customer management'
+});
+```
+
+#### Properties
 
 - `stage`: The current deployment stage (e.g., 'dev', 'prod')
 
-### Methods
+#### Methods
 
-#### lambda(handler: string): LambdaBuilder
+##### lambda(handler: string): LambdaBuilder
 
 Creates a new Lambda function with the specified handler path.
 
+**Parameters:**
+- `handler`: Path to the Lambda function handler file (without extension)
+
+**Returns:** LambdaBuilder instance for fluent configuration
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/users/get-users');
+// Create a simple Lambda function
+app.lambda('src/handlers/users/get-users')
+   .get('/users');
+
+// Multiple functions with different configurations
+app.lambda('src/handlers/users/create-user')
+    .post('/users')
+    .memory(512)
+    .timeout(cdk.Duration.seconds(10))
+    .environment({
+      TABLE_NAME: 'users-table'
+    });
 ```
 
-#### getSharedApi(): ApiBuilder | undefined
+##### getSharedApi(): ApiBuilder | undefined
 
 Returns the shared API Gateway instance, if one has been created.
 
+**Returns:** The shared ApiBuilder instance or undefined if none exists
+
+**Example:**
 ```typescript
-// Example
-const api = this.getSharedApi();
+// Get the shared API Gateway
+const api = app.getSharedApi();
 if (api) {
   console.log(`API URL: ${api.getApiUrl()}`);
+  
+  // You can also access the underlying CDK construct
+  const httpApi = api.getApi();
 }
 ```
 
-#### synth(): void
+##### synth(): void
 
-Synthesizes the CDK application into CloudFormation templates. 
-This is called automatically when the application terminates.
+Synthesizes the CDK application into CloudFormation templates. This is called automatically when the application terminates, but can be called manually if needed.
 
-## LambdaBuilder
+**Example:**
+```typescript
+// Set up your lambdas and other resources
+app.lambda('src/handlers/users/get-users').get('/users');
+
+// Manually synthesize the application
+app.synth();
+```
+
+##### getStack(): cdk.Stack
+
+Returns the underlying CDK Stack instance.
+
+**Returns:** The CDK Stack instance
+
+**Example:**
+```typescript
+// Get the underlying CDK Stack
+const stack = app.getStack();
+
+// Now you can use it with other CDK constructs
+new cdk.CfnOutput(stack, 'ApiUrl', {
+  value: app.getSharedApi()?.getApiUrl() || ''
+});
+```
+
+### LambdaBuilder
 
 A builder class for configuring Lambda functions with a fluent interface.
 
-### HTTP Methods
+#### Constructor
 
-#### get(path: string): LambdaBuilder
+Not typically called directly. Use `CdkLess.lambda()` instead.
+
+```typescript
+constructor(props: LambdaBuilderProps)
+```
+
+#### HTTP Methods
+
+##### get(path: string, options?: RouteOptions): LambdaBuilder
 
 Adds a GET endpoint to the function.
 
+**Parameters:**
+- `path`: API endpoint path (can include path parameters like `:id`)
+- `options`: Optional route configuration
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/users/get-users')
-  .get('/users');
+// Basic GET endpoint
+app.lambda('src/handlers/users/get-users')
+   .get('/users');
+
+// GET endpoint with path parameter
+app.lambda('src/handlers/users/get-user-by-id')
+   .get('/users/:id');
 ```
 
-#### post(path: string): LambdaBuilder
+##### post(path: string, options?: RouteOptions): LambdaBuilder
 
 Adds a POST endpoint to the function.
 
+**Parameters:**
+- `path`: API endpoint path
+- `options`: Optional route configuration
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/users/create-user')
-  .post('/users');
+// Create a POST endpoint for creating users
+app.lambda('src/handlers/users/create-user')
+   .post('/users');
 ```
 
-#### put(path: string): LambdaBuilder
+##### put(path: string, options?: RouteOptions): LambdaBuilder
 
 Adds a PUT endpoint to the function.
 
+**Parameters:**
+- `path`: API endpoint path (can include path parameters like `:id`)
+- `options`: Optional route configuration
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/users/update-user')
-  .put('/users/:id');
+// Create a PUT endpoint for updating a user
+app.lambda('src/handlers/users/update-user')
+   .put('/users/:id');
 ```
 
-#### delete(path: string): LambdaBuilder
+##### delete(path: string, options?: RouteOptions): LambdaBuilder
 
 Adds a DELETE endpoint to the function.
 
+**Parameters:**
+- `path`: API endpoint path (can include path parameters like `:id`)
+- `options`: Optional route configuration
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/users/delete-user')
-  .delete('/users/:id');
+// Create a DELETE endpoint
+app.lambda('src/handlers/users/delete-user')
+   .delete('/users/:id');
 ```
 
-### Resource Integration
+##### patch(path: string, options?: RouteOptions): LambdaBuilder
 
-#### addTablePermissions(tableArn: string): LambdaBuilder
+Adds a PATCH endpoint to the function.
 
-Adds permissions for the function to access a DynamoDB table.
+**Parameters:**
+- `path`: API endpoint path
+- `options`: Optional route configuration
 
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/orders/get-orders')
-  .get('/orders')
-  .addTablePermissions('arn:aws:dynamodb:region:account:table/orders-table');
+// Create a PATCH endpoint for partial updates
+app.lambda('src/handlers/users/patch-user')
+   .patch('/users/:id');
 ```
 
-#### addTrigger(topicArn: string, options?: SnsOptions): LambdaBuilder
+#### Event Source Integrations
+
+##### addSnsTrigger(topicArn: string, options?: SnsOptions): LambdaBuilder
 
 Subscribes the function to an SNS topic.
 
+**Parameters:**
+- `topicArn`: ARN of the SNS topic
+- `options`: Optional configuration for the SNS subscription
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/notifications/send-email')
-  .addTrigger('arn:aws:sns:region:account:topic/notifications-topic');
+// Subscribe to an SNS topic
+app.lambda('src/handlers/notifications/process-event')
+   .addSnsTrigger('arn:aws:sns:region:account:topic/notifications-topic', {
+     filterPolicy: {
+       eventType: sns.SubscriptionFilter.stringFilter({
+         allowlist: ['USER_CREATED', 'USER_UPDATED']
+       })
+     }
+   });
 ```
 
-#### addQueue(queueArn: string, options?: SqsOptions): LambdaBuilder
+##### addSqsTrigger(queueArn: string, options?: SqsOptions): LambdaBuilder
 
 Configures the function to consume messages from an SQS queue.
 
+**Parameters:**
+- `queueArn`: ARN of the SQS queue
+- `options`: Optional configuration for the SQS event source
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/orders/process-order')
-  .addQueue('arn:aws:sqs:region:account:queue/orders-queue');
+// Process messages from an SQS queue
+app.lambda('src/handlers/orders/process-order')
+   .addSqsTrigger('arn:aws:sqs:region:account:queue/orders-queue', {
+     batchSize: 10,
+     maxBatchingWindow: cdk.Duration.seconds(30),
+     reportBatchItemFailures: true
+   });
 ```
 
-#### addS3Bucket(bucketArn: string, options?: S3Options): LambdaBuilder
+##### addS3Trigger(bucketArn: string, options?: S3Options): LambdaBuilder
 
 Configures the function to react to S3 events.
 
+**Parameters:**
+- `bucketArn`: ARN of the S3 bucket
+- `options`: Optional configuration for the S3 event source
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/documents/process-upload')
-  .addS3Bucket('arn:aws:s3:region:account:bucket/documents-bucket');
+// Process file uploads in an S3 bucket
+app.lambda('src/handlers/documents/process-upload')
+   .addS3Trigger('arn:aws:s3:region:account:bucket/documents-bucket', {
+     events: [s3.EventType.OBJECT_CREATED_PUT],
+     prefix: 'uploads/',
+     suffix: '.pdf'
+   });
 ```
 
-### Configuration
+#### Resource Permissions
 
-#### environment(env: { [key: string]: string }): LambdaBuilder
+##### addTablePermissions(tableArn: string, options?: PolicyOptions): LambdaBuilder
+
+Adds permissions for the function to access a DynamoDB table.
+
+**Parameters:**
+- `tableArn`: ARN of the DynamoDB table
+- `options`: Optional IAM policy configuration
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
+```typescript
+// Grant access to a DynamoDB table
+app.lambda('src/handlers/users/get-users')
+   .get('/users')
+   .addTablePermissions('arn:aws:dynamodb:region:account:table/users-table', {
+     includeSubResources: true // Includes {tableArn}/* for indexes
+   });
+```
+
+##### addS3BucketPermissions(bucketArn: string, options?: PolicyOptions): LambdaBuilder
+
+Adds permissions for the function to access an S3 bucket.
+
+**Parameters:**
+- `bucketArn`: ARN of the S3 bucket
+- `options`: Optional IAM policy configuration
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
+```typescript
+// Grant access to an S3 bucket
+app.lambda('src/handlers/files/list-files')
+   .get('/files')
+   .addS3BucketPermissions('arn:aws:s3:region:account:bucket/files-bucket');
+```
+
+##### addCustomPolicy(policyStatement: iam.PolicyStatement): LambdaBuilder
+
+Adds a custom IAM policy statement to the Lambda function.
+
+**Parameters:**
+- `policyStatement`: IAM policy statement
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
+```typescript
+// Add a custom policy
+import * as iam from 'aws-cdk-lib/aws-iam';
+
+const customPolicy = new iam.PolicyStatement({
+  effect: iam.Effect.ALLOW,
+  actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+  resources: ['*']
+});
+
+app.lambda('src/handlers/emails/send-email')
+   .post('/emails/send')
+   .addCustomPolicy(customPolicy);
+```
+
+#### Configuration
+
+##### environment(env: Record<string, string>): LambdaBuilder
 
 Adds environment variables to the function.
 
+**Parameters:**
+- `env`: Object containing key-value pairs for environment variables
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/payment/process')
-  .post('/payments')
-  .environment({
-    PAYMENT_API_KEY: 'secret-key',
-    STAGE: this.stage,
-    LOG_LEVEL: 'INFO'
-  });
+// Add environment variables
+app.lambda('src/handlers/payment/process')
+   .post('/payments')
+   .environment({
+     PAYMENT_API_KEY: 'secret-key',
+     STAGE: 'prod',
+     LOG_LEVEL: 'INFO'
+   });
 ```
 
-#### runtime(runtime: lambda.Runtime): LambdaBuilder
+##### memory(size: number): LambdaBuilder
 
-Sets the runtime for the function (default: NodejsFunction.NODEJS_20_X).
+Sets the memory size for the function in MB.
 
+**Parameters:**
+- `size`: Memory size in MB (default: 256)
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/legacy/process')
-  .runtime(lambda.Runtime.NODEJS_16_X);
+// Set memory to 512 MB
+app.lambda('src/handlers/image/resize')
+   .post('/images/resize')
+   .memory(512);
 ```
 
-#### memory(size: number): LambdaBuilder
+##### timeout(duration: cdk.Duration): LambdaBuilder
 
-Sets the memory size for the function in MB (default: 256).
+Sets the timeout for the function.
 
+**Parameters:**
+- `duration`: Function timeout duration
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/data-processing/transform')
-  .memory(512);
+// Set timeout to 60 seconds
+import * as cdk from 'aws-cdk-lib';
+
+app.lambda('src/handlers/long-running/process')
+   .post('/process')
+   .timeout(cdk.Duration.seconds(60));
 ```
 
-#### timeout(duration: cdk.Duration): LambdaBuilder
+##### authorizer(authorizer: apigatewayv2.HttpRouteAuthorizer, scopes?: string[]): LambdaBuilder
 
-Sets the timeout for the function (default: 30 seconds).
+Adds an authorizer to all API endpoints for this Lambda.
 
+**Parameters:**
+- `authorizer`: HTTP route authorizer
+- `scopes`: Optional authorization scopes
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
 ```typescript
-// Example
-this.lambda('src/handlers/long-running/process')
-  .timeout(cdk.Duration.seconds(60));
+// Add a JWT authorizer
+import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+
+const jwtAuthorizer = new HttpJwtAuthorizer(
+  'UserAuthorizer',
+  'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_poolId',
+  {
+    jwtAudience: ['client-id']
+  }
+);
+
+app.lambda('src/handlers/protected/resource')
+   .get('/protected')
+   .authorizer(jwtAuthorizer, ['profile:read']);
 ```
 
-### Access Methods
+#### Access Methods
 
-#### getLambda(): lambda.Function
+##### getLambda(): lambda.Function
 
 Returns the underlying Lambda function instance.
 
+**Returns:** The CDK Lambda Function instance
+
+**Example:**
 ```typescript
-// Example
-const fn = this.lambda('src/handlers/test')
+// Get the underlying Lambda function
+const fn = app.lambda('src/handlers/test')
   .get('/test')
   .getLambda();
   
 // Now you can use the function with other CDK constructs
-new cdk.CfnOutput(this, 'LambdaArn', {
+new cdk.CfnOutput(app, 'LambdaArn', {
   value: fn.functionArn
 });
 ```
 
-## ApiBuilder
+### ApiBuilder
 
 A utility class for building HTTP APIs. Typically used internally by LambdaBuilder, but can be accessed via `getSharedApi()`.
 
-### Methods
+#### Methods
 
-#### getApi(): apigateway.HttpApi
+##### getApi(): apigateway.HttpApi
 
 Returns the underlying API Gateway HTTP API instance.
 
-#### getApiUrl(): string
+**Returns:** The CDK HTTP API instance
+
+**Example:**
+```typescript
+const api = app.getSharedApi()?.getApi();
+if (api) {
+  // Access the underlying API Gateway
+  console.log(api.httpApiId);
+}
+```
+
+##### getApiUrl(): string
 
 Returns the base URL of the API.
 
-#### getEndpoint(path: string, stage?: string): string
+**Returns:** The API Gateway URL
 
-Returns the full URL for a specific endpoint. 
+**Example:**
+```typescript
+const apiUrl = app.getSharedApi()?.getApiUrl();
+console.log(`API URL: ${apiUrl}`);
+```
+
+##### getEndpoint(path: string, stage?: string): string
+
+Returns the full URL for a specific endpoint.
+
+**Parameters:**
+- `path`: The endpoint path
+- `stage`: Optional stage name (defaults to the current stage)
+
+**Returns:** The full endpoint URL
+
+**Example:**
+```typescript
+const api = app.getSharedApi();
+if (api) {
+  const userEndpoint = api.getEndpoint('/users');
+  console.log(`Users endpoint: ${userEndpoint}`);
+}
+```
+
+## Lambda Configuration
+
+Here are more complete examples of configuring Lambda functions with CDKless:
+
+### Basic Lambda with API Endpoint
+
+```typescript
+app.lambda('src/handlers/users/get-users')
+   .get('/users');
+```
+
+### Lambda with Multiple Endpoints
+
+```typescript
+const userLambda = app.lambda('src/handlers/users/user-operations');
+userLambda.get('/users');
+userLambda.post('/users');
+userLambda.get('/users/:id');
+userLambda.put('/users/:id');
+userLambda.delete('/users/:id');
+```
+
+### Lambda with Advanced Configuration
+
+```typescript
+app.lambda('src/handlers/image/process')
+   .post('/images/process')
+   .memory(1024)
+   .timeout(cdk.Duration.seconds(30))
+   .environment({
+     BUCKET_NAME: 'images-bucket',
+     THUMBNAIL_SIZE: '200x200',
+     API_KEY: 'secret-api-key'
+   })
+   .addS3BucketPermissions('arn:aws:s3:region:account:bucket/images-bucket');
+```
+
+## API Gateway Integration
+
+Examples of API Gateway integration:
+
+### Multiple HTTP Methods
+
+```typescript
+// Define multiple endpoints with different HTTP methods
+app.lambda('src/handlers/users/get-users').get('/users');
+app.lambda('src/handlers/users/create-user').post('/users');
+app.lambda('src/handlers/users/get-user-by-id').get('/users/:id');
+app.lambda('src/handlers/users/update-user').put('/users/:id');
+app.lambda('src/handlers/users/delete-user').delete('/users/:id');
+```
+
+### With Authorization
+
+```typescript
+import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+
+// Create a JWT authorizer for your Cognito User Pool
+const jwtAuthorizer = new HttpJwtAuthorizer(
+  'CognitoAuthorizer',
+  'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_poolId',
+  {
+    jwtAudience: ['client-id']
+  }
+);
+
+// Apply the authorizer to endpoints
+app.lambda('src/handlers/users/get-me')
+   .get('/users/me')
+   .authorizer(jwtAuthorizer, ['profile:read']);
+
+app.lambda('src/handlers/admin/dashboard')
+   .get('/admin/dashboard')
+   .authorizer(jwtAuthorizer, ['admin:read']);
+```
+
+## Event Sources
+
+Examples of configuring event sources:
+
+### SNS Topic
+
+```typescript
+// Process events from an SNS topic
+app.lambda('src/handlers/notifications/process-event')
+   .addSnsTrigger('arn:aws:sns:region:account:topic/notifications-topic', {
+     filterPolicy: {
+       eventType: sns.SubscriptionFilter.stringFilter({
+         allowlist: ['USER_CREATED', 'USER_UPDATED']
+       })
+     }
+   });
+```
+
+### SQS Queue
+
+```typescript
+// Process messages from an SQS queue
+app.lambda('src/handlers/orders/process-order')
+   .addSqsTrigger('arn:aws:sqs:region:account:queue/orders-queue', {
+     batchSize: 10,
+     maxBatchingWindow: cdk.Duration.seconds(30),
+     reportBatchItemFailures: true
+   });
+```
+
+### S3 Events
+
+```typescript
+// Process S3 events
+app.lambda('src/handlers/files/process-upload')
+   .addS3Trigger('arn:aws:s3:region:account:bucket/files-bucket', {
+     events: [s3.EventType.OBJECT_CREATED_PUT, s3.EventType.OBJECT_CREATED_POST],
+     prefix: 'uploads/',
+     suffix: '.pdf'
+   });
+```
+
+## Resource Permissions
+
+Examples of adding resource permissions:
+
+### DynamoDB Table
+
+```typescript
+// Grant permissions to a DynamoDB table
+app.lambda('src/handlers/users/crud-operations')
+   .get('/users')
+   .post('/users')
+   .put('/users/:id')
+   .delete('/users/:id')
+   .addTablePermissions('arn:aws:dynamodb:region:account:table/users-table', {
+     includeSubResources: true
+   });
+```
+
+### S3 Bucket
+
+```typescript
+// Grant permissions to an S3 bucket
+app.lambda('src/handlers/files/file-operations')
+   .get('/files')
+   .post('/files')
+   .delete('/files/:id')
+   .addS3BucketPermissions('arn:aws:s3:region:account:bucket/files-bucket');
+```
+
+### Custom IAM Policy
+
+```typescript
+// Add a custom IAM policy
+import * as iam from 'aws-cdk-lib/aws-iam';
+
+const sesPolicy = new iam.PolicyStatement({
+  effect: iam.Effect.ALLOW,
+  actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+  resources: ['*']
+});
+
+app.lambda('src/handlers/notifications/send-email')
+   .post('/send-email')
+   .addCustomPolicy(sesPolicy);
+```
+
+## Interfaces Reference
+
+CDKless has a well-organized set of TypeScript interfaces that you can use when extending the library or creating advanced configurations.
+
+### Lambda Interfaces
+
+```typescript
+import { 
+  LambdaBuilderProps, 
+  SnsOptions, 
+  SqsOptions, 
+  S3Options,
+  PolicyOptions,
+  LambdaInfo,
+  TriggerInfo
+} from 'cdkless';
+```
+
+#### LambdaBuilderProps
+
+Properties required to create a LambdaBuilder.
+
+```typescript
+interface LambdaBuilderProps {
+  scope: Construct; 
+  handler: string;
+}
+```
+
+#### SnsOptions
+
+Options for SNS topic integration.
+
+```typescript
+interface SnsOptions {
+  filterPolicy?: { [key: string]: sns.SubscriptionFilter };
+  deadLetterQueue?: sqs.IQueue;
+}
+```
+
+#### SqsOptions
+
+Options for SQS queue integration.
+
+```typescript
+interface SqsOptions {
+  batchSize?: number;
+  maxBatchingWindow?: cdk.Duration;
+  enabled?: boolean;
+  reportBatchItemFailures?: boolean;
+  maxConcurrency?: number;
+}
+```
+
+#### S3Options
+
+Options for S3 bucket integration.
+
+```typescript
+interface S3Options {
+  events?: s3.EventType[];
+  filters?: s3.NotificationKeyFilter[];
+  prefix?: string;
+  suffix?: string;
+}
+```
+
+### API Interfaces
+
+```typescript
+import { ApiBuilderProps, RouteOptions } from 'cdkless';
+```
+
+#### ApiBuilderProps
+
+Properties for creating an ApiBuilder.
+
+```typescript
+interface ApiBuilderProps {
+  scope: Construct;
+  id: string;
+  apiName?: string;
+  description?: string;
+  stageName?: string;
+  useDefaultCors?: boolean;
+  binaryMediaTypes?: string[];
+  disableExecuteApiEndpoint?: boolean;
+}
+```
+
+#### RouteOptions
+
+Options for configuring API routes.
+
+```typescript
+interface RouteOptions {
+  authorizer?: apigatewayv2.IHttpRouteAuthorizer;
+  [key: string]: any;
+}
+```
+
+This comprehensive API documentation should provide you with all the information you need to effectively use CDKless for building serverless applications. 
