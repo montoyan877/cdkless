@@ -147,7 +147,6 @@ export class LambdaBuilder {
       entry: `${this.handlerPath}.ts`,
       handler: "handler",
       bundling: {
-        externalModules: ["aws-sdk"],
         minify: true,
         sourceMap: true,
       },
