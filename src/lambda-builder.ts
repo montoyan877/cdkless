@@ -19,6 +19,10 @@ import {
   SnsOptions,
   SqsOptions,
   S3Options,
+  SnsConfig,
+  SqsConfig,
+  S3Config,
+  PolicyConfig
 } from "./interfaces/lambda";
 import { RouteOptions } from "./interfaces";
 
@@ -38,6 +42,13 @@ export class LambdaBuilder {
   private isBuilt = false;
   private isAutoBuilding = false;
   private authorizer?: apigatewayv2.IHttpRouteAuthorizer;
+
+  // Store configurations for later application
+  private snsConfigs: SnsConfig[] = [];
+  private sqsConfigs: SqsConfig[] = [];
+  private s3Configs: S3Config[] = [];
+  private policyConfigs: PolicyConfig[] = [];
+  private tableArns: string[] = [];
 
   // New configuration properties with default values
   private runtimeValue: lambda.Runtime = lambda.Runtime.NODEJS_22_X;
@@ -248,21 +259,8 @@ export class LambdaBuilder {
     actions: string[],
     options?: PolicyOptions
   ): LambdaBuilder {
-    const policyStatement = new iam.PolicyStatement({
-      effect: options?.effect || iam.Effect.ALLOW,
-    });
-
-    const resources = [arn];
-
-    if (options?.includeSubResources) {
-      resources.push(`${arn}/*`);
-    }
-
-    policyStatement.addResources(...resources);
-    policyStatement.addActions(...actions);
-
-    this.lambda.addToRolePolicy(policyStatement);
-
+    // Store the policy configuration for later application
+    this.policyConfigs.push({ arn, actions, options });
     return this;
   }
 
@@ -272,27 +270,8 @@ export class LambdaBuilder {
    * @param options Additional options for the SNS subscription
    */
   public addSnsTrigger(topicArn: string, options?: SnsOptions): LambdaBuilder {
-    const topic = sns.Topic.fromTopicArn(
-      this.scope,
-      `${this.resourceName}-imported-topic-${this.stage}`,
-      topicArn
-    );
-
-    const snsEventSource = new lambdaEventSources.SnsEventSource(topic, {
-      filterPolicy: options?.filterPolicy,
-      deadLetterQueue: options?.deadLetterQueue,
-    });
-
-    this.lambda.addEventSource(snsEventSource);
-
-    this.lambda.addPermission(
-      `${this.resourceName}-sns-permission-${this.stage}`,
-      {
-        principal: new iam.ServicePrincipal("sns.amazonaws.com"),
-        sourceArn: topic.topicArn,
-      }
-    );
-
+    // Store the SNS configuration for later application
+    this.snsConfigs.push({ topicArn, options });
     return this;
   }
 
@@ -302,24 +281,8 @@ export class LambdaBuilder {
    * @param options Additional options for the SQS configuration
    */
   public addSqsTrigger(queueArn: string, options?: SqsOptions): LambdaBuilder {
-    const queue = sqs.Queue.fromQueueArn(
-      this.scope,
-      `${this.resourceName}-imported-queue-${this.stage}`,
-      queueArn
-    );
-
-    const sqsEventSource = new lambdaEventSources.SqsEventSource(queue, {
-      batchSize: options?.batchSize || 10,
-      maxBatchingWindow: options?.maxBatchingWindow,
-      enabled: options?.enabled,
-      reportBatchItemFailures: options?.reportBatchItemFailures,
-      maxConcurrency: options?.maxConcurrency,
-    });
-
-    this.lambda.addEventSource(sqsEventSource);
-
-    queue.grantConsumeMessages(this.lambda);
-
+    // Store the SQS configuration for later application
+    this.sqsConfigs.push({ queueArn, options });
     return this;
   }
 
@@ -329,60 +292,14 @@ export class LambdaBuilder {
    * @param options Additional options for the S3 configuration
    */
   public addS3Trigger(bucketArn: string, options?: S3Options): LambdaBuilder {
-    const bucket = s3.Bucket.fromBucketArn(
-      this.scope,
-      `${this.resourceName}-imported-bucket-${this.stage}`,
-      bucketArn
-    );
-
-    const events = options?.events || [s3.EventType.OBJECT_CREATED];
-
-    const filters: s3.NotificationKeyFilter[] = [];
-
-    if (options?.prefix) {
-      filters.push({ prefix: options.prefix });
-    }
-    if (options?.suffix) {
-      filters.push({ suffix: options.suffix });
-    }
-
-    if (options?.filters && options.filters.length > 0) {
-      filters.push(...options.filters);
-    }
-
-    bucket.addEventNotification(
-      events[0],
-      new s3n.LambdaDestination(this.lambda),
-      ...filters
-    );
-
-    if (events.length > 1) {
-      for (let i = 1; i < events.length; i++) {
-        bucket.addEventNotification(
-          events[i],
-          new s3n.LambdaDestination(this.lambda),
-          ...filters
-        );
-      }
-    }
-
-    this.lambda.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["s3:GetObject", "s3:ListBucket"],
-        resources: [bucket.bucketArn, `${bucket.bucketArn}/*`],
-      })
-    );
-
+    // Store the S3 configuration for later application
+    this.s3Configs.push({ bucketArn, options });
     return this;
   }
 
   public addTablePermissions(tableArn: string): LambdaBuilder {
-    const table = dynamodb.Table.fromTableArn(
-      this.scope,
-      `${this.resourceName}-imported-table-${this.stage}`,
-      tableArn
-    );
-    table.grantReadWriteData(this.lambda);
+    // Store the table ARN for later application
+    this.tableArns.push(tableArn);
     return this;
   }
 
@@ -411,12 +328,147 @@ export class LambdaBuilder {
     return apiBuilder;
   }
 
+  /**
+   * Apply all the stored SNS configurations
+   */
+  private applySnsTriggers(): void {
+    this.snsConfigs.forEach(config => {
+      const topic = sns.Topic.fromTopicArn(
+        this.scope,
+        `${this.resourceName}-imported-topic-${this.stage}-${this.snsConfigs.indexOf(config)}`,
+        config.topicArn
+      );
+
+      const snsEventSource = new lambdaEventSources.SnsEventSource(topic, {
+        filterPolicy: config.options?.filterPolicy,
+        deadLetterQueue: config.options?.deadLetterQueue,
+      });
+
+      this.lambda.addEventSource(snsEventSource);
+
+      this.lambda.addPermission(
+        `${this.resourceName}-sns-permission-${this.stage}-${this.snsConfigs.indexOf(config)}`,
+        {
+          principal: new iam.ServicePrincipal("sns.amazonaws.com"),
+          sourceArn: topic.topicArn,
+        }
+      );
+    });
+  }
+
+  /**
+   * Apply all the stored SQS configurations
+   */
+  private applySqsTriggers(): void {
+    this.sqsConfigs.forEach(config => {
+      const queue = sqs.Queue.fromQueueArn(
+        this.scope,
+        `${this.resourceName}-imported-queue-${this.stage}-${this.sqsConfigs.indexOf(config)}`,
+        config.queueArn
+      );
+
+      const sqsEventSource = new lambdaEventSources.SqsEventSource(queue, {
+        batchSize: config.options?.batchSize || 10,
+        maxBatchingWindow: config.options?.maxBatchingWindow,
+        enabled: config.options?.enabled,
+        reportBatchItemFailures: config.options?.reportBatchItemFailures,
+        maxConcurrency: config.options?.maxConcurrency,
+      });
+
+      this.lambda.addEventSource(sqsEventSource);
+      queue.grantConsumeMessages(this.lambda);
+    });
+  }
+
+  /**
+   * Apply all the stored S3 configurations
+   */
+  private applyS3Triggers(): void {
+    this.s3Configs.forEach(config => {
+      const bucket = s3.Bucket.fromBucketArn(
+        this.scope,
+        `${this.resourceName}-imported-bucket-${this.stage}-${this.s3Configs.indexOf(config)}`,
+        config.bucketArn
+      );
+
+      const events = config.options?.events || [s3.EventType.OBJECT_CREATED];
+      const filters: s3.NotificationKeyFilter[] = [];
+
+      if (config.options?.prefix) {
+        filters.push({ prefix: config.options.prefix });
+      }
+      if (config.options?.suffix) {
+        filters.push({ suffix: config.options.suffix });
+      }
+      if (config.options?.filters && config.options.filters.length > 0) {
+        filters.push(...config.options.filters);
+      }
+
+      events.forEach(event => {
+        bucket.addEventNotification(
+          event,
+          new s3n.LambdaDestination(this.lambda),
+          ...filters
+        );
+      });
+
+      this.lambda.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["s3:GetObject", "s3:ListBucket"],
+          resources: [bucket.bucketArn, `${bucket.bucketArn}/*`],
+        })
+      );
+    });
+  }
+
+  /**
+   * Apply all the stored policy configurations
+   */
+  private applyPolicies(): void {
+    this.policyConfigs.forEach(config => {
+      const policyStatement = new iam.PolicyStatement({
+        effect: config.options?.effect || iam.Effect.ALLOW,
+      });
+
+      const resources = [config.arn];
+      if (config.options?.includeSubResources) {
+        resources.push(`${config.arn}/*`);
+      }
+
+      policyStatement.addResources(...resources);
+      policyStatement.addActions(...config.actions);
+
+      this.lambda.addToRolePolicy(policyStatement);
+    });
+  }
+
+  /**
+   * Apply all the stored table permissions
+   */
+  private applyTablePermissions(): void {
+    this.tableArns.forEach((tableArn, index) => {
+      const table = dynamodb.Table.fromTableArn(
+        this.scope,
+        `${this.resourceName}-imported-table-${this.stage}-${index}`,
+        tableArn
+      );
+      table.grantReadWriteData(this.lambda);
+    });
+  }
+
   public build(): lambda.Function {
     if (this.isBuilt) {
       return this.lambda;
     }
 
     this.lambda = this.createNodejsFunction();
+
+    // Now that the Lambda exists, apply all the stored configurations
+    this.applySnsTriggers();
+    this.applySqsTriggers();
+    this.applyS3Triggers();
+    this.applyPolicies();
+    this.applyTablePermissions();
 
     if (this.method && this.path) {
       const sharedApi = this.getOrCreateSharedApi();
