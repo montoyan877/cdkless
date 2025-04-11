@@ -230,6 +230,12 @@ export class LambdaBuilder {
     return this;
   }
 
+  public patch(path: string): LambdaBuilder {
+    this.method = "PATCH";
+    this.path = path;
+    return this;
+  }
+
   public delete(path: string): LambdaBuilder {
     this.method = "DELETE";
     this.path = path;

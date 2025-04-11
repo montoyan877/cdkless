@@ -1,0 +1,21 @@
+{
+  "name": "cdkless-microservice-example",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "lambda-run ui",
+    "build": "tsc",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy --all",
+    "destroy": "cdk destroy --all",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "aws-cdk-lib": "2.123.0",
+    "cdkless": "0.1.0-beta.16",
+    "constructs": "10.3.0",
+    "dotenv": "^16.5.0",
+    "lambda-running": "0.2.5",
+    "typescript": "5.3.3",
+    "vitest": "^3.0.8"
+  }
+}

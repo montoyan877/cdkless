@@ -35,7 +35,7 @@ export class ApiBuilder {
    * @param path Path to add
    * @param resourceName Name of the resource
    * @param lambda Lambda function that will handle the route
-   * @param method HTTP method (GET, POST, PUT, DELETE)
+   * @param method HTTP method (GET, POST, PUT, DELETE, PATCH)
    * @param options Additional options for the route
    */
   public addRoute({

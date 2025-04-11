@@ -1,4 +1,7 @@
 import { CdkLess } from "cdkless";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 /**
  * Example microservice application for a simple order management system
@@ -26,7 +29,7 @@ app
   .addSnsTrigger("arn:aws:sns:region:account:topic/new-order-topic")
   .environment({
     NOTIFICATION_EMAIL: "orders@example.com",
-    STAGE: app.stage,
+    SENTRY_DSN: process.env.SENTRY_DSN || "",
   });
 
 // Background processors

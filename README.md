@@ -61,7 +61,7 @@ app.lambda("src/handlers/users/delete-user").delete("/users");
 app.lambda("src/handlers/users/update-user").put("/users");
 ```
 
-> **Note:** The handler path provided to `.lambda()` should be relative to the location of your `cdk.json` file, which should be placed at the root of your project.
+> **Note:** The handler path provided to `.lambda()` should be relative to the location of your `cdk.json` file, which should be placed at the root of your project. If you have any questions, please review the example folder in this repository.
 
 2. Create a `cdk.json` file in your project root with the following content:
 

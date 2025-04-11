@@ -73,14 +73,17 @@ app.lambda('src/handlers/users/get-users')
    .get('/users');
 
 // Multiple functions with different configurations
-app.lambda('src/handlers/users/create-user')
-    .post('/users')
-    .memory(512)
-    .timeout(cdk.Duration.seconds(10))
-    .environment({
-      TABLE_NAME: 'users-table'
-    });
+app
+  .lambda('src/handlers/users/create-user')
+  .post('/users')
+  .memory(512)
+  .timeout(cdk.Duration.seconds(10))
+  .environment({
+    TABLE_NAME: 'users-table'
+  });
 ```
+
+> **Note:** The handler path provided to `.lambda()` should be relative to the location of your `cdk.json` file, which should be placed at the root of your project.
 
 ##### getSharedApi(): ApiBuilder | undefined
 
@@ -142,95 +145,125 @@ Not typically called directly. Use `CdkLess.lambda()` instead.
 constructor(props: LambdaBuilderProps)
 ```
 
+#### Naming Lambda Functions
+
+##### name(functionName: string): LambdaBuilder
+
+Sets a custom name for the Lambda function.
+
+**Parameters:**
+- `functionName`: The custom name for the Lambda function
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
+```typescript
+// Set a custom Lambda function name
+app
+  .lambda("src/handlers/users/create-user")
+  .name(`${APP_NAME}-create-user-lambda`)
+  .post("/users");
+
+// Multiple configurations can be chained
+app
+  .lambda("src/handlers/orders/process-order")
+  .name(`${APP_NAME}-process-order-lambda`)
+  .post("/orders")
+  .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table");
+```
+
+> By default, CdkLess assigns a name to each Lambda function based on the filename containing the handler. However, it's recommended to specify custom names for better clarity and to avoid duplication errors when deploying.
+
 #### HTTP Methods
 
-##### get(path: string, options?: RouteOptions): LambdaBuilder
+##### get(path: string): LambdaBuilder
 
 Adds a GET endpoint to the function.
 
 **Parameters:**
 - `path`: API endpoint path (can include path parameters like `:id`)
-- `options`: Optional route configuration
 
 **Returns:** The LambdaBuilder instance for method chaining
 
 **Example:**
 ```typescript
 // Basic GET endpoint
-app.lambda('src/handlers/users/get-users')
-   .get('/users');
+app
+  .lambda('src/handlers/users/get-users')
+  .get('/users');
 
 // GET endpoint with path parameter
-app.lambda('src/handlers/users/get-user-by-id')
-   .get('/users/:id');
+app
+  .lambda('src/handlers/users/get-user-by-id')
+  .get('/users/:id');
 ```
 
-##### post(path: string, options?: RouteOptions): LambdaBuilder
+##### post(path: string): LambdaBuilder
 
 Adds a POST endpoint to the function.
 
 **Parameters:**
 - `path`: API endpoint path
-- `options`: Optional route configuration
 
 **Returns:** The LambdaBuilder instance for method chaining
 
 **Example:**
 ```typescript
 // Create a POST endpoint for creating users
-app.lambda('src/handlers/users/create-user')
-   .post('/users');
+app
+  .lambda('src/handlers/users/create-user')
+  .post('/users');
 ```
 
-##### put(path: string, options?: RouteOptions): LambdaBuilder
+##### put(path: string): LambdaBuilder
 
 Adds a PUT endpoint to the function.
 
 **Parameters:**
 - `path`: API endpoint path (can include path parameters like `:id`)
-- `options`: Optional route configuration
 
 **Returns:** The LambdaBuilder instance for method chaining
 
 **Example:**
 ```typescript
 // Create a PUT endpoint for updating a user
-app.lambda('src/handlers/users/update-user')
-   .put('/users/:id');
+app
+  .lambda('src/handlers/users/update-user')
+  .put('/users/:id');
 ```
 
-##### delete(path: string, options?: RouteOptions): LambdaBuilder
+##### delete(path: string): LambdaBuilder
 
 Adds a DELETE endpoint to the function.
 
 **Parameters:**
 - `path`: API endpoint path (can include path parameters like `:id`)
-- `options`: Optional route configuration
 
 **Returns:** The LambdaBuilder instance for method chaining
 
 **Example:**
 ```typescript
 // Create a DELETE endpoint
-app.lambda('src/handlers/users/delete-user')
-   .delete('/users/:id');
+app
+  .lambda('src/handlers/users/delete-user')
+  .delete('/users/:id');
 ```
 
-##### patch(path: string, options?: RouteOptions): LambdaBuilder
+##### patch(path: string): LambdaBuilder
 
 Adds a PATCH endpoint to the function.
 
 **Parameters:**
 - `path`: API endpoint path
-- `options`: Optional route configuration
 
 **Returns:** The LambdaBuilder instance for method chaining
 
 **Example:**
 ```typescript
 // Create a PATCH endpoint for partial updates
-app.lambda('src/handlers/users/patch-user')
-   .patch('/users/:id');
+app
+  .lambda('src/handlers/users/patch-user')
+  .patch('/users/:id');
 ```
 
 #### Event Source Integrations
@@ -248,14 +281,15 @@ Subscribes the function to an SNS topic.
 **Example:**
 ```typescript
 // Subscribe to an SNS topic
-app.lambda('src/handlers/notifications/process-event')
-   .addSnsTrigger('arn:aws:sns:region:account:topic/notifications-topic', {
-     filterPolicy: {
-       eventType: sns.SubscriptionFilter.stringFilter({
-         allowlist: ['USER_CREATED', 'USER_UPDATED']
-       })
-     }
-   });
+app
+  .lambda('src/handlers/notifications/process-event')
+  .addSnsTrigger('arn:aws:sns:region:account:topic/notifications-topic', {
+    filterPolicy: {
+      eventType: sns.SubscriptionFilter.stringFilter({
+        allowlist: ['USER_CREATED', 'USER_UPDATED']
+      })
+    }
+  });
 ```
 
 ##### addSqsTrigger(queueArn: string, options?: SqsOptions): LambdaBuilder
@@ -271,12 +305,13 @@ Configures the function to consume messages from an SQS queue.
 **Example:**
 ```typescript
 // Process messages from an SQS queue
-app.lambda('src/handlers/orders/process-order')
-   .addSqsTrigger('arn:aws:sqs:region:account:queue/orders-queue', {
-     batchSize: 10,
-     maxBatchingWindow: cdk.Duration.seconds(30),
-     reportBatchItemFailures: true
-   });
+app
+  .lambda('src/handlers/orders/process-order')
+  .addSqsTrigger('arn:aws:sqs:region:account:queue/orders-queue', {
+    batchSize: 10,
+    maxBatchingWindow: cdk.Duration.seconds(30),
+    reportBatchItemFailures: true
+  });
 ```
 
 ##### addS3Trigger(bucketArn: string, options?: S3Options): LambdaBuilder
@@ -292,77 +327,56 @@ Configures the function to react to S3 events.
 **Example:**
 ```typescript
 // Process file uploads in an S3 bucket
-app.lambda('src/handlers/documents/process-upload')
-   .addS3Trigger('arn:aws:s3:region:account:bucket/documents-bucket', {
-     events: [s3.EventType.OBJECT_CREATED_PUT],
-     prefix: 'uploads/',
-     suffix: '.pdf'
-   });
+app
+  .lambda('src/handlers/documents/process-upload')
+  .addS3Trigger('arn:aws:s3:region:account:bucket/documents-bucket', {
+    events: [s3.EventType.OBJECT_CREATED_PUT],
+    prefix: 'uploads/',
+    suffix: '.pdf'
+  });
 ```
 
 #### Resource Permissions
 
-##### addTablePermissions(tableArn: string, options?: PolicyOptions): LambdaBuilder
+##### addTablePermissions(tableArn: string): LambdaBuilder
 
 Adds permissions for the function to access a DynamoDB table.
 
 **Parameters:**
 - `tableArn`: ARN of the DynamoDB table
-- `options`: Optional IAM policy configuration
 
 **Returns:** The LambdaBuilder instance for method chaining
 
 **Example:**
 ```typescript
 // Grant access to a DynamoDB table
-app.lambda('src/handlers/users/get-users')
-   .get('/users')
-   .addTablePermissions('arn:aws:dynamodb:region:account:table/users-table', {
-     includeSubResources: true // Includes {tableArn}/* for indexes
-   });
+app
+  .lambda('src/handlers/users/get-users')
+  .get('/users')
+  .addTablePermissions('arn:aws:dynamodb:region:account:table/users-table');
 ```
 
-##### addS3BucketPermissions(bucketArn: string, options?: PolicyOptions): LambdaBuilder
+##### addPolicy(resourceArn: string, actions: string[]): LambdaBuilder
 
-Adds permissions for the function to access an S3 bucket.
+Adds a custom policy with specific actions for a resource.
 
 **Parameters:**
-- `bucketArn`: ARN of the S3 bucket
-- `options`: Optional IAM policy configuration
+- `resourceArn`: ARN of the resource
+- `actions`: List of IAM actions to allow
 
 **Returns:** The LambdaBuilder instance for method chaining
 
 **Example:**
 ```typescript
-// Grant access to an S3 bucket
-app.lambda('src/handlers/files/list-files')
-   .get('/files')
-   .addS3BucketPermissions('arn:aws:s3:region:account:bucket/files-bucket');
-```
-
-##### addCustomPolicy(policyStatement: iam.PolicyStatement): LambdaBuilder
-
-Adds a custom IAM policy statement to the Lambda function.
-
-**Parameters:**
-- `policyStatement`: IAM policy statement
-
-**Returns:** The LambdaBuilder instance for method chaining
-
-**Example:**
-```typescript
-// Add a custom policy
-import * as iam from 'aws-cdk-lib/aws-iam';
-
-const customPolicy = new iam.PolicyStatement({
-  effect: iam.Effect.ALLOW,
-  actions: ['ses:SendEmail', 'ses:SendRawEmail'],
-  resources: ['*']
-});
-
-app.lambda('src/handlers/emails/send-email')
-   .post('/emails/send')
-   .addCustomPolicy(customPolicy);
+// Add a custom policy with specific actions
+app
+  .lambda('src/handlers/files/upload')
+  .post('/files')
+  .addPolicy('arn:aws:s3:region:account:bucket/uploads-bucket', [
+    's3:GetObject',
+    's3:PutObject',
+  ])
+  .addPolicy('arn:aws:sns:us-east-1:123456789012:mi-topic', ['SNS:Publish']);
 ```
 
 #### Configuration
@@ -379,13 +393,14 @@ Adds environment variables to the function.
 **Example:**
 ```typescript
 // Add environment variables
-app.lambda('src/handlers/payment/process')
-   .post('/payments')
-   .environment({
-     PAYMENT_API_KEY: 'secret-key',
-     STAGE: 'prod',
-     LOG_LEVEL: 'INFO'
-   });
+app
+  .lambda('src/handlers/payment/process')
+  .post('/payments')
+  .environment({
+    PAYMENT_API_KEY: 'secret-key',
+    STAGE: 'prod',
+    LOG_LEVEL: 'INFO'
+  });
 ```
 
 ##### memory(size: number): LambdaBuilder
@@ -400,9 +415,10 @@ Sets the memory size for the function in MB.
 **Example:**
 ```typescript
 // Set memory to 512 MB
-app.lambda('src/handlers/image/resize')
-   .post('/images/resize')
-   .memory(512);
+app
+  .lambda('src/handlers/image/resize')
+  .post('/images/resize')
+  .memory(512);
 ```
 
 ##### timeout(duration: cdk.Duration): LambdaBuilder
@@ -419,12 +435,13 @@ Sets the timeout for the function.
 // Set timeout to 60 seconds
 import * as cdk from 'aws-cdk-lib';
 
-app.lambda('src/handlers/long-running/process')
-   .post('/process')
-   .timeout(cdk.Duration.seconds(60));
+app
+  .lambda('src/handlers/long-running/process')
+  .post('/process')
+  .timeout(cdk.Duration.seconds(60));
 ```
 
-##### authorizer(authorizer: apigatewayv2.HttpRouteAuthorizer, scopes?: string[]): LambdaBuilder
+##### addAuthorizer(authorizer: apigatewayv2.HttpRouteAuthorizer, scopes?: string[]): LambdaBuilder
 
 Adds an authorizer to all API endpoints for this Lambda.
 
@@ -447,9 +464,10 @@ const jwtAuthorizer = new HttpJwtAuthorizer(
   }
 );
 
-app.lambda('src/handlers/protected/resource')
-   .get('/protected')
-   .authorizer(jwtAuthorizer, ['profile:read']);
+app
+  .lambda('src/handlers/protected/resource')
+  .get('/protected')
+  .addAuthorizer(jwtAuthorizer, ['profile:read']);
 ```
 
 #### Access Methods
@@ -463,7 +481,8 @@ Returns the underlying Lambda function instance.
 **Example:**
 ```typescript
 // Get the underlying Lambda function
-const fn = app.lambda('src/handlers/test')
+const fn = app
+  .lambda('src/handlers/test')
   .get('/test')
   .getLambda();
   
@@ -550,16 +569,18 @@ userLambda.delete('/users/:id');
 ### Lambda with Advanced Configuration
 
 ```typescript
-app.lambda('src/handlers/image/process')
-   .post('/images/process')
-   .memory(1024)
-   .timeout(cdk.Duration.seconds(30))
-   .environment({
-     BUCKET_NAME: 'images-bucket',
-     THUMBNAIL_SIZE: '200x200',
-     API_KEY: 'secret-api-key'
-   })
-   .addS3BucketPermissions('arn:aws:s3:region:account:bucket/images-bucket');
+app
+  .lambda('src/handlers/image/process')
+  .name('my-service-image-processor')
+  .post('/images/process')
+  .memory(1024)
+  .timeout(cdk.Duration.seconds(30))
+  .environment({
+    BUCKET_NAME: 'images-bucket',
+    THUMBNAIL_SIZE: '200x200',
+    API_KEY: 'secret-api-key'
+  })
+  .addS3Permissions('arn:aws:s3:region:account:bucket/images-bucket');
 ```
 
 ## API Gateway Integration
@@ -592,13 +613,15 @@ const jwtAuthorizer = new HttpJwtAuthorizer(
 );
 
 // Apply the authorizer to endpoints
-app.lambda('src/handlers/users/get-me')
-   .get('/users/me')
-   .authorizer(jwtAuthorizer, ['profile:read']);
+app
+  .lambda('src/handlers/users/get-me')
+  .get('/users/me')
+  .addAuthorizer(jwtAuthorizer, ['profile:read']);
 
-app.lambda('src/handlers/admin/dashboard')
-   .get('/admin/dashboard')
-   .authorizer(jwtAuthorizer, ['admin:read']);
+app
+  .lambda('src/handlers/admin/dashboard')
+  .get('/admin/dashboard')
+  .addAuthorizer(jwtAuthorizer, ['admin:read']);
 ```
 
 ## Event Sources
@@ -609,38 +632,41 @@ Examples of configuring event sources:
 
 ```typescript
 // Process events from an SNS topic
-app.lambda('src/handlers/notifications/process-event')
-   .addSnsTrigger('arn:aws:sns:region:account:topic/notifications-topic', {
-     filterPolicy: {
-       eventType: sns.SubscriptionFilter.stringFilter({
-         allowlist: ['USER_CREATED', 'USER_UPDATED']
-       })
-     }
-   });
+app
+  .lambda('src/handlers/notifications/process-event')
+  .addSnsTrigger('arn:aws:sns:region:account:topic/notifications-topic', {
+    filterPolicy: {
+      eventType: sns.SubscriptionFilter.stringFilter({
+        allowlist: ['USER_CREATED', 'USER_UPDATED']
+      })
+    }
+  });
 ```
 
 ### SQS Queue
 
 ```typescript
 // Process messages from an SQS queue
-app.lambda('src/handlers/orders/process-order')
-   .addSqsTrigger('arn:aws:sqs:region:account:queue/orders-queue', {
-     batchSize: 10,
-     maxBatchingWindow: cdk.Duration.seconds(30),
-     reportBatchItemFailures: true
-   });
+app
+  .lambda('src/handlers/orders/process-order')
+  .addSqsTrigger('arn:aws:sqs:region:account:queue/orders-queue', {
+    batchSize: 10,
+    maxBatchingWindow: cdk.Duration.seconds(30),
+    reportBatchItemFailures: true
+  });
 ```
 
 ### S3 Events
 
 ```typescript
 // Process S3 events
-app.lambda('src/handlers/files/process-upload')
-   .addS3Trigger('arn:aws:s3:region:account:bucket/files-bucket', {
-     events: [s3.EventType.OBJECT_CREATED_PUT, s3.EventType.OBJECT_CREATED_POST],
-     prefix: 'uploads/',
-     suffix: '.pdf'
-   });
+app
+  .lambda('src/handlers/files/process-upload')
+  .addS3Trigger('arn:aws:s3:region:account:bucket/files-bucket', {
+    events: [s3.EventType.OBJECT_CREATED_PUT, s3.EventType.OBJECT_CREATED_POST],
+    prefix: 'uploads/',
+    suffix: '.pdf'
+  });
 ```
 
 ## Resource Permissions
@@ -651,42 +677,27 @@ Examples of adding resource permissions:
 
 ```typescript
 // Grant permissions to a DynamoDB table
-app.lambda('src/handlers/users/crud-operations')
-   .get('/users')
-   .post('/users')
-   .put('/users/:id')
-   .delete('/users/:id')
-   .addTablePermissions('arn:aws:dynamodb:region:account:table/users-table', {
-     includeSubResources: true
-   });
-```
-
-### S3 Bucket
-
-```typescript
-// Grant permissions to an S3 bucket
-app.lambda('src/handlers/files/file-operations')
-   .get('/files')
-   .post('/files')
-   .delete('/files/:id')
-   .addS3BucketPermissions('arn:aws:s3:region:account:bucket/files-bucket');
+app
+  .lambda('src/handlers/users/crud-operations')
+  .get('/users')
+  .post('/users')
+  .put('/users/:id')
+  .delete('/users/:id')
+  .addTablePermissions('arn:aws:dynamodb:region:account:table/users-table');
 ```
 
 ### Custom IAM Policy
 
 ```typescript
-// Add a custom IAM policy
-import * as iam from 'aws-cdk-lib/aws-iam';
-
-const sesPolicy = new iam.PolicyStatement({
-  effect: iam.Effect.ALLOW,
-  actions: ['ses:SendEmail', 'ses:SendRawEmail'],
-  resources: ['*']
-});
-
-app.lambda('src/handlers/notifications/send-email')
-   .post('/send-email')
-   .addCustomPolicy(sesPolicy);
+// Add a specific set of permissions using addPolicy
+app
+  .lambda('src/handlers/files/upload')
+  .post('/files')
+  .addPolicy('arn:aws:s3:region:account:bucket/uploads-bucket', [
+    's3:GetObject',
+    's3:PutObject',
+  ])
+  .addPolicy('arn:aws:sns:us-east-1:123456789012:mi-topic', ['SNS:Publish']);
 ```
 
 ## Interfaces Reference
