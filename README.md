@@ -47,27 +47,38 @@ CdkLess was created for development teams that need to:
 
 ## 📋 Quick Start
 
-Create a fully functional serverless microservice in **just one file**:
+1. Create a fully functional serverless microservice in **just one file**:
 
 ```typescript
 // src/app.ts
-import { CdkLess } from 'cdkless';
+import { CdkLess } from "cdkless";
 
 const app = new CdkLess("user-services");
-app.lambda('src/handlers/users/get-users')
-   .get('/users');
 
-app.lambda('src/handlers/users/create-user')
-    .post('/users');
-
-app.lambda('src/handlers/users/delete-user')
-    .delete('/users');
-
-app.lambda('src/handlers/users/update-user')
-    .put('/users');
-
-// That's it! Just instantiate your microservice
+app.lambda("src/handlers/users/get-users").get("/users");
+app.lambda("src/handlers/users/create-user").post("/users");
+app.lambda("src/handlers/users/delete-user").delete("/users");
+app.lambda("src/handlers/users/update-user").put("/users");
 ```
+
+> **Note:** The handler path provided to `.lambda()` should be relative to the location of your `cdk.json` file, which should be placed at the root of your project.
+
+2. Create a `cdk.json` file in your project root with the following content:
+
+```json
+{
+  "app": "npx ts-node src/app.ts"
+}
+```
+
+3. Deploy your service by running:
+
+```bash
+cdk bootstrap  # Only needed once per AWS account/region
+cdk deploy
+```
+
+Your Lambda functions, triggers, API Gateway, and necessary permissions will be automatically deployed to AWS.
 
 ## 🏛️ Architectural Approach
 
@@ -81,7 +92,8 @@ CdkLess follows a specific architectural pattern:
 
 ```typescript
 // Example of connecting to existing infrastructure via ARNs
-app.lambda("src/handlers/orders/process")
+app
+  .lambda("src/handlers/orders/process")
   .post("/orders")
   .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table") // Connect to existing DynamoDB table
   .addSnsTrigger("arn:aws:sns:region:account:topic/order-events"); // Connect to existing SNS topic
@@ -142,11 +154,13 @@ const jwtAuthorizer = new HttpJwtAuthorizer(
 );
 
 // Securing routes with authorizers
-app.lambda("src/handlers/admin/dashboard")
+app
+  .lambda("src/handlers/admin/dashboard")
   .get("/admin/dashboard")
   .addAuthorizer(lambdaAuthorizer);
 
-app.lambda("src/handlers/users/profile")
+app
+  .lambda("src/handlers/users/profile")
   .get("/users/profile")
   .addAuthorizer(jwtAuthorizer, ["profile:read"]);
 ```
@@ -156,7 +170,8 @@ app.lambda("src/handlers/users/profile")
 Connect to DynamoDB tables using ARNs:
 
 ```typescript
-app.lambda("src/handlers/orders/create-order")
+app
+  .lambda("src/handlers/orders/create-order")
   .post("/orders")
   .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table");
 ```
@@ -167,19 +182,19 @@ Create event-driven microservices with SQS, SNS, and S3 triggers:
 
 ```typescript
 // SQS Queue consumer
-app.lambda("src/handlers/orders/process-order").addSqsTrigger(
-  "arn:aws:sqs:region:account:queue/orders-queue"
-);
+app
+  .lambda("src/handlers/orders/process-order")
+  .addSqsTrigger("arn:aws:sqs:region:account:queue/orders-queue");
 
 // SNS Topic subscriber
-app.lambda("src/handlers/notifications/send-email").addSnsTrigger(
-  "arn:aws:sns:region:account:topic/notifications-topic"
-);
+app
+  .lambda("src/handlers/notifications/send-email")
+  .addSnsTrigger("arn:aws:sns:region:account:topic/notifications-topic");
 
 // S3 event handler
-app.lambda("src/handlers/documents/process-upload").addS3Trigger(
-  "arn:aws:s3:region:account:bucket/documents-bucket"
-);
+app
+  .lambda("src/handlers/documents/process-upload")
+  .addS3Trigger("arn:aws:s3:region:account:bucket/documents-bucket");
 ```
 
 ### ⚙️ Environment Configuration
@@ -195,6 +210,47 @@ app.lambda("src/handlers/payment/process").post("/payments").environment({
 ```
 
 By default, CdkLess uses the `STAGE` environment variable to determine the deployment stage (e.g., 'dev', 'staging', 'prod'). If not set, it defaults to 'dev'.
+
+## 🔑 Adding Permissions to Lambda Functions
+
+Grant your Lambda functions access to AWS resources with a simple, chainable API:
+
+```typescript
+// Add Grant DynamoDB table permissions
+app
+  .lambda("src/handlers/users/create-user")
+  .post("/users")
+  .addTablePermissions("arn:aws:dynamodb:region:account:table/users-table");
+
+// Add differents permissions
+app
+  .lambda("src/handlers/files/upload")
+  .post("/files")
+  .addPolicy("arn:aws:s3:region:account:bucket/uploads-bucket", [
+    "s3:GetObject",
+    "s3:PutObject",
+  ])
+  .addPolicy("arn:aws:sns:us-east-1:123456789012:mi-topic", ["SNS:Publish"]);
+```
+
+## ✏️ Naming Lambda Functions
+
+By default, CdkLess assigns a name to each Lambda function based on the filename containing the handler. However, it's recommended to specify custom names for better clarity and to avoid duplication errors when deploying:
+
+```typescript
+// Set a custom Lambda function name
+app
+  .lambda("src/handlers/users/create-user")
+  .name(`${APP_NAME}-create-user-lambda`)
+  .post("/users");
+
+// Multiple configurations can be chained
+app
+  .lambda("src/handlers/orders/process-order")
+  .name(`${APP_NAME}-process-order-lambda`)
+  .post("/orders")
+  .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table");
+```
 
 ## 🏗️ Microservice Architecture Best Practices
 
@@ -237,6 +293,33 @@ src/
 
 Resources are shared automatically. For example, all HTTP endpoints will share a single API Gateway.
 
+## 🐞 Local Development and Testing
+
+For local Lambda function testing, we recommend using [lambda-running](https://www.npmjs.com/package/lambda-running), a lightweight and easy-to-configure library:
+
+```bash
+# Install globally
+npm install -g lambda-running
+
+# Setting
+lambda-run init
+
+# Start UI mode with web interface
+lambda-run ui
+
+# Or use interactive CLI mode
+lambda-run i
+
+# Or run a specific handler directly
+lambda-run run src/handlers/users/get-users.js handler --event '{"pathParameters": {"id": "123"}}'
+```
+
+Key features of lambda-running:
+- 🎨 Modern web interface for testing Lambda functions
+- 🔍 Real-time logs and execution results
+- 💾 Save and reuse test events
+- 🔄 Automatic .env file loading
+
 ## 📄 API Reference
 
 For detailed API documentation, please visit our [API Reference](https://github.com/montoyan877/cdkless/blob/main/docs/API.md) page.
@@ -264,7 +347,7 @@ Yes, CdkLess doesn't hide the underlying CDK. You can always access the shared A
 
 ### How does deployment work?
 
-CdkLess handles the CDK synthesis process automatically when your application runs. Just execute your application with `npm start` and it will deploy to AWS.
+CdkLess handles the CDK synthesis process automatically when your application runs. Just execute your application with `cdk deploy` and it will deploy to AWS.
 
 ### What does the beta status mean for my project?
 
@@ -283,21 +366,3 @@ We welcome contributions! Please feel free to submit a Pull Request.
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Resource Visualization
-
-CdkLess provides an elegant way to visualize deployed resources with a beautiful format in the terminal. This functionality is directly integrated into the framework and is automatically activated during deployment.
-
-### Visualization Features
-
-When you deploy a stack with CDKless, you'll automatically see a detailed summary of all deployed resources:
-
-- 🚀 Stack and stage summary
-- 📊 Resource count by type (Lambdas, API endpoints, SNS Topics, etc.)
-- 🌐 API Gateway URL
-- ⚡ Details of each Lambda function:
-  - Configuration (memory, timeout)
-  - Environment variables
-  - Configured triggers
-
-This visual format makes it much easier to understand which resources have been deployed and how they are configured.
