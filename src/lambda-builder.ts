@@ -10,6 +10,8 @@ import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as cdk from "aws-cdk-lib";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
+import * as events from "aws-cdk-lib/aws-events";
+import * as eventsTargets from "aws-cdk-lib/aws-events-targets";
 import { Construct } from "constructs";
 import { Stack } from "aws-cdk-lib";
 import { ApiBuilder } from "./api-builder";
@@ -19,10 +21,12 @@ import {
   SnsOptions,
   SqsOptions,
   S3Options,
+  EventBridgeRuleOptions,
   SnsConfig,
   SqsConfig,
   S3Config,
-  PolicyConfig
+  PolicyConfig,
+  EventBridgeRuleConfig
 } from "./interfaces/lambda";
 import { RouteOptions } from "./interfaces";
 
@@ -49,6 +53,7 @@ export class LambdaBuilder {
   private s3Configs: S3Config[] = [];
   private policyConfigs: PolicyConfig[] = [];
   private tableArns: string[] = [];
+  private eventBridgeRuleConfigs: EventBridgeRuleConfig[] = [];
 
   // New configuration properties with default values
   private runtimeValue: lambda.Runtime = lambda.Runtime.NODEJS_22_X;
@@ -309,6 +314,16 @@ export class LambdaBuilder {
   }
 
   /**
+   * Adds an EventBridge rule trigger to the Lambda function
+   * @param options Options for the EventBridge rule
+   */
+  public addEventBridgeRuleTrigger(options: EventBridgeRuleOptions): LambdaBuilder {
+    // Store the EventBridge rule configuration for later application
+    this.eventBridgeRuleConfigs.push({ options });
+    return this;
+  }
+
+  /**
    * Gets or creates a shared API Gateway
    * @returns An instance of ApiBuilder
    */
@@ -461,6 +476,30 @@ export class LambdaBuilder {
     });
   }
 
+  /**
+   * Apply all the stored EventBridge rule configurations
+   */
+  private applyEventBridgeRuleTriggers(): void {
+    this.eventBridgeRuleConfigs.forEach((config, index) => {
+      const ruleName = config.options.ruleName || 
+        `${this.resourceName}-rule-${this.stage}-${index}`;
+
+      // Create the rule
+      const rule = new events.Rule(this.scope, `${this.resourceName}-rule-${index}`, {
+        ruleName: ruleName,
+        description: config.options.description,
+        enabled: config.options.enabled !== false, // Default to true if not specified
+        schedule: config.options.scheduleExpression 
+          ? events.Schedule.expression(config.options.scheduleExpression) 
+          : undefined,
+        eventPattern: config.options.eventPattern,
+      });
+
+      // Add the Lambda as a target
+      rule.addTarget(new eventsTargets.LambdaFunction(this.lambda));
+    });
+  }
+
   public build(): lambda.Function {
     if (this.isBuilt) {
       return this.lambda;
@@ -474,6 +513,7 @@ export class LambdaBuilder {
     this.applyS3Triggers();
     this.applyPolicies();
     this.applyTablePermissions();
+    this.applyEventBridgeRuleTriggers();
 
     if (this.method && this.path) {
       const sharedApi = this.getOrCreateSharedApi();

@@ -97,7 +97,7 @@ Returns the shared API Gateway instance, if one has been created.
 const api = app.getSharedApi();
 if (api) {
   console.log(`API URL: ${api.getApiUrl()}`);
-  
+
   // You can also access the underlying CDK construct
   const httpApi = api.getApi();
 }
@@ -267,6 +267,37 @@ app
 ```
 
 #### Event Source Integrations
+
+##### addEventBridgeRuleTrigger(options: EventBridgeRuleOptions): LambdaBuilder
+
+Creates an EventBridge rule that triggers the Lambda function.
+
+**Parameters:**
+- `options`: Configuration for the EventBridge rule
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
+```typescript
+// Create a scheduled rule
+app
+  .lambda('src/handlers/scheduled/daily-report')
+  .addEventBridgeRuleTrigger({
+    scheduleExpression: "cron(0 12 * * ? *)",  // Run daily at 12:00 PM UTC
+    description: "Trigger daily report generation"
+  });
+
+// Create an event pattern rule
+app
+  .lambda('src/handlers/events/process-state-change')
+  .addEventBridgeRuleTrigger({
+    eventPattern: {
+      source: ["aws.ec2"],
+      detailType: ["EC2 Instance State-change Notification"]
+    },
+    description: "Process EC2 state changes"
+  });
+```
 
 ##### addSnsTrigger(topicArn: string, options?: SnsOptions): LambdaBuilder
 
@@ -485,7 +516,7 @@ const fn = app
   .lambda('src/handlers/test')
   .get('/test')
   .getLambda();
-  
+
 // Now you can use the function with other CDK constructs
 new cdk.CfnOutput(app, 'LambdaArn', {
   value: fn.functionArn
@@ -628,6 +659,31 @@ app
 
 Examples of configuring event sources:
 
+### EventBridge Rule
+
+```typescript
+// Scheduled EventBridge rule
+app
+  .lambda('src/handlers/scheduled/daily-report')
+  .addEventBridgeRuleTrigger({
+    scheduleExpression: "cron(0 12 * * ? *)",  // Run daily at 12:00 PM UTC
+    description: "Trigger daily report generation",
+    ruleName: "daily-report-rule"
+  });
+
+// Event pattern EventBridge rule
+app
+  .lambda('src/handlers/events/process-state-change')
+  .addEventBridgeRuleTrigger({
+    eventPattern: {
+      source: ["aws.ec2"],
+      detailType: ["EC2 Instance State-change Notification"]
+    },
+    description: "Process EC2 state changes",
+    enabled: true
+  });
+```
+
 ### SNS Topic
 
 ```typescript
@@ -712,6 +768,7 @@ import {
   SnsOptions, 
   SqsOptions, 
   S3Options,
+  EventBridgeRuleOptions,
   PolicyOptions,
   LambdaInfo,
   TriggerInfo
@@ -764,6 +821,20 @@ interface S3Options {
   filters?: s3.NotificationKeyFilter[];
   prefix?: string;
   suffix?: string;
+}
+```
+
+#### EventBridgeRuleOptions
+
+Options for EventBridge rule integration.
+
+```typescript
+interface EventBridgeRuleOptions {
+  eventPattern?: events.EventPattern;
+  scheduleExpression?: string;
+  description?: string;
+  enabled?: boolean;
+  ruleName?: string;
 }
 ```
 
