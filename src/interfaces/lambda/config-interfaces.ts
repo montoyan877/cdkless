@@ -1,7 +1,8 @@
 import {
   SnsOptions,
   SqsOptions,
-  S3Options
+  S3Options,
+  EventBridgeRuleOptions
 } from './lambda-options';
 import { PolicyOptions } from './lambda-props';
 
@@ -46,3 +47,11 @@ export interface PolicyConfig {
   /** Additional policy configuration options */
   options?: PolicyOptions;
 } 
+
+/**
+ * Configuration for EventBridge rule triggers
+ */
+export interface EventBridgeRuleConfig {
+  /** Options for the EventBridge rule */
+  options: EventBridgeRuleOptions;
+}

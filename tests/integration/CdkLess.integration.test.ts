@@ -142,4 +142,66 @@ describe("CdkLess Integration Tests", () => {
       BucketName: "test-bucket",
     });
   });
+
+  test("Lambda with EventBridge schedule rule is created correctly", () => {
+    const cdkless = new CdkLess("eventbridge-schedule-app");
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("eventbridge-schedule-lambda")
+      .addEventBridgeRuleTrigger({
+        scheduleExpression: "rate(1 hour)",
+        description: "Trigger lambda every hour",
+        ruleName: "hourly-schedule-rule"
+      })
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties("AWS::Events::Rule", {
+      Name: "hourly-schedule-rule",
+      Description: "Trigger lambda every hour",
+      ScheduleExpression: "rate(1 hour)",
+      State: "ENABLED"
+    });
+
+    template.hasResourceProperties("AWS::Lambda::Permission", {
+      Action: "lambda:InvokeFunction",
+      Principal: "events.amazonaws.com"
+    });
+  });
+
+  test("Lambda with EventBridge event pattern rule is created correctly", () => {
+    const cdkless = new CdkLess("eventbridge-pattern-app");
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("eventbridge-pattern-lambda")
+      .addEventBridgeRuleTrigger({
+        eventPattern: {
+          source: ["aws.ec2"],
+          detailType: ["EC2 Instance State-change Notification"]
+        },
+        description: "Trigger lambda on EC2 state changes"
+      })
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties("AWS::Events::Rule", {
+      Description: "Trigger lambda on EC2 state changes",
+      EventPattern: {
+        source: ["aws.ec2"],
+        "detail-type": ["EC2 Instance State-change Notification"]
+      },
+      State: "ENABLED"
+    });
+
+    template.hasResourceProperties("AWS::Lambda::Permission", {
+      Action: "lambda:InvokeFunction",
+      Principal: "events.amazonaws.com"
+    });
+  });
 });
