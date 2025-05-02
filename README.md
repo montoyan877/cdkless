@@ -195,6 +195,25 @@ app
 app
   .lambda("src/handlers/documents/process-upload")
   .addS3Trigger("arn:aws:s3:region:account:bucket/documents-bucket");
+
+// EventBridge rule trigger
+app
+  .lambda("src/handlers/scheduled/daily-report")
+  .addEventBridgeRuleTrigger({
+    scheduleExpression: "cron(0 12 * * ? *)",  // Run daily at 12:00 PM UTC
+    description: "Trigger daily report generation"
+  });
+
+// EventBridge event pattern trigger
+app
+  .lambda("src/handlers/events/process-state-change")
+  .addEventBridgeRuleTrigger({
+    eventPattern: {
+      source: ["aws.ec2"],
+      detailType: ["EC2 Instance State-change Notification"]
+    },
+    description: "Process EC2 state changes"
+  });
 ```
 
 ### ⚙️ Environment Configuration

@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as events from 'aws-cdk-lib/aws-events';
 
 /**
  * Options for SNS integration
@@ -42,3 +43,19 @@ export interface S3Options {
   /** Suffix for filtering objects */
   suffix?: string;
 } 
+
+/**
+ * Options for EventBridge rule integration
+ */
+export interface EventBridgeRuleOptions {
+  /** Event pattern for the rule */
+  eventPattern?: events.EventPattern;
+  /** Schedule expression for the rule */
+  scheduleExpression?: string;
+  /** Description for the rule */
+  description?: string;
+  /** Whether the rule is enabled */
+  enabled?: boolean;
+  /** Rule name */
+  ruleName?: string;
+}
