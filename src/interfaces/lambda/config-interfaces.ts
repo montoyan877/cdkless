@@ -2,7 +2,8 @@ import {
   SnsOptions,
   SqsOptions,
   S3Options,
-  EventBridgeRuleOptions
+  EventBridgeRuleOptions,
+  KafkaOptions
 } from './lambda-options';
 import { PolicyOptions } from './lambda-props';
 
@@ -54,4 +55,18 @@ export interface PolicyConfig {
 export interface EventBridgeRuleConfig {
   /** Options for the EventBridge rule */
   options: EventBridgeRuleOptions;
+}
+
+/**
+ * Configuration for Kafka triggers
+ */
+export interface KafkaConfig {
+  /** Bootstrap servers for Kafka */
+  bootstrapServers: string;
+  /** Topic name */
+  topic: string;
+  /** ARN of the secret containing Kafka credentials */
+  secretArn: string;
+  /** Additional options for the Kafka event source */
+  options?: KafkaOptions;
 }

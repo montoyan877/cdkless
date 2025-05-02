@@ -10,8 +10,10 @@ import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as cdk from "aws-cdk-lib";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
+import { ManagedKafkaEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as events from "aws-cdk-lib/aws-events";
 import * as eventsTargets from "aws-cdk-lib/aws-events-targets";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import { Stack } from "aws-cdk-lib";
 import { ApiBuilder } from "./api-builder";
@@ -26,8 +28,10 @@ import {
   SqsConfig,
   S3Config,
   PolicyConfig,
-  EventBridgeRuleConfig
+  EventBridgeRuleConfig,
+  KafkaConfig
 } from "./interfaces/lambda";
+import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
 
 let sharedApi: ApiBuilder;
@@ -54,6 +58,7 @@ export class LambdaBuilder {
   private policyConfigs: PolicyConfig[] = [];
   private tableArns: string[] = [];
   private eventBridgeRuleConfigs: EventBridgeRuleConfig[] = [];
+  private kafkaConfigs: KafkaConfig[] = [];
 
   // New configuration properties with default values
   private runtimeValue: lambda.Runtime = lambda.Runtime.NODEJS_22_X;
@@ -323,6 +328,11 @@ export class LambdaBuilder {
     return this;
   }
 
+  public addKafkaTrigger(config: KafkaConfig): LambdaBuilder {
+    this.kafkaConfigs.push(config);
+    return this;
+  }
+
   /**
    * Gets or creates a shared API Gateway
    * @returns An instance of ApiBuilder
@@ -500,6 +510,29 @@ export class LambdaBuilder {
     });
   }
 
+  private applyKafkaTriggers(): void {
+    for (const config of this.kafkaConfigs) {
+      const secret = secretsmanager.Secret.fromSecretCompleteArn(
+        this.scope,
+        `${this.resourceName}-kafka-secret`,
+        config.secretArn
+      );
+
+      const eventSource = new ManagedKafkaEventSource({
+        clusterArn: config.bootstrapServers,
+        topic: config.topic,
+        secret: secret,
+        batchSize: config.options?.batchSize || 10,
+        maxBatchingWindow: cdk.Duration.seconds(config.options?.maximumBatchingWindow || 1),
+        startingPosition: config.options?.startingPosition || StartingPosition.TRIM_HORIZON,
+        enabled: config.options?.enabled ?? true,
+        consumerGroupId: config.options?.consumerGroupId || `lambda-${this.resourceName}-consumer-group`,
+      });
+
+      this.lambda.addEventSource(eventSource);
+    }
+  }
+
   public build(): lambda.Function {
     if (this.isBuilt) {
       return this.lambda;
@@ -514,6 +547,7 @@ export class LambdaBuilder {
     this.applyPolicies();
     this.applyTablePermissions();
     this.applyEventBridgeRuleTriggers();
+    this.applyKafkaTriggers();
 
     if (this.method && this.path) {
       const sharedApi = this.getOrCreateSharedApi();
