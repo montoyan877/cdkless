@@ -3,7 +3,6 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as events from 'aws-cdk-lib/aws-events';
-import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 
 /**
  * Options for SNS integration
@@ -59,18 +58,5 @@ export interface EventBridgeRuleOptions {
   enabled?: boolean;
   /** Rule name */
   ruleName?: string;
-}
-
-export interface KafkaOptions {
-  /** Batch size for messages */
-  batchSize?: number;
-  /** Maximum waiting time to accumulate messages in a batch */
-  maximumBatchingWindow?: number;
-  /** Starting position for the Kafka consumer */
-  startingPosition?: StartingPosition;
-  /** Whether the integration is enabled */
-  enabled?: boolean;
-  /** Consumer group ID */
-  consumerGroupId?: string;
 }
 

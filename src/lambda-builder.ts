@@ -522,11 +522,11 @@ export class LambdaBuilder {
         clusterArn: config.bootstrapServers,
         topic: config.topic,
         secret: secret,
-        batchSize: config.options?.batchSize || 10,
-        maxBatchingWindow: cdk.Duration.seconds(config.options?.maximumBatchingWindow || 1),
-        startingPosition: config.options?.startingPosition || StartingPosition.TRIM_HORIZON,
-        enabled: config.options?.enabled ?? true,
-        consumerGroupId: config.options?.consumerGroupId || `lambda-${this.resourceName}-consumer-group`,
+        batchSize: config?.batchSize || 10,
+        maxBatchingWindow: cdk.Duration.seconds(config?.maximumBatchingWindow || 1),
+        startingPosition: config?.startingPosition || StartingPosition.TRIM_HORIZON,
+        enabled: config?.enabled ?? true,
+        consumerGroupId: config?.consumerGroupId || `lambda-${this.resourceName}-consumer-group`,
       });
 
       this.lambda.addEventSource(eventSource);
