@@ -10,7 +10,7 @@ import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as cdk from "aws-cdk-lib";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
-import { ManagedKafkaEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
+import { AuthenticationMethod, ManagedKafkaEventSource, SelfManagedKafkaEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as events from "aws-cdk-lib/aws-events";
 import * as eventsTargets from "aws-cdk-lib/aws-events-targets";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
@@ -29,7 +29,8 @@ import {
   S3Config,
   PolicyConfig,
   EventBridgeRuleConfig,
-  KafkaConfig
+  MSKConfig,
+  SMKConfig
 } from "./interfaces/lambda";
 import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
@@ -58,7 +59,8 @@ export class LambdaBuilder {
   private policyConfigs: PolicyConfig[] = [];
   private tableArns: string[] = [];
   private eventBridgeRuleConfigs: EventBridgeRuleConfig[] = [];
-  private kafkaConfigs: KafkaConfig[] = [];
+  private mskConfigs: MSKConfig[] = [];
+  private smkConfigs: SMKConfig[] = [];
 
   // New configuration properties with default values
   private runtimeValue: lambda.Runtime = lambda.Runtime.NODEJS_22_X;
@@ -328,8 +330,13 @@ export class LambdaBuilder {
     return this;
   }
 
-  public addKafkaTrigger(config: KafkaConfig): LambdaBuilder {
-    this.kafkaConfigs.push(config);
+  public addMSKTrigger(config: MSKConfig): LambdaBuilder {
+    this.mskConfigs.push(config);
+    return this;
+  }
+
+  public addSMKTrigger(config: SMKConfig): LambdaBuilder {
+    this.smkConfigs.push(config);
     return this;
   }
 
@@ -510,8 +517,8 @@ export class LambdaBuilder {
     });
   }
 
-  private applyKafkaTriggers(): void {
-    for (const config of this.kafkaConfigs) {
+  private applyMSKTriggers(): void {
+    for (const config of this.mskConfigs) {
       const secret = secretsmanager.Secret.fromSecretCompleteArn(
         this.scope,
         `${this.resourceName}-kafka-secret`,
@@ -519,8 +526,32 @@ export class LambdaBuilder {
       );
 
       const eventSource = new ManagedKafkaEventSource({
-        clusterArn: config.bootstrapServers,
+        clusterArn: config.clusterArn,
         topic: config.topic,
+        secret: secret,
+        batchSize: config?.batchSize || 10,
+        maxBatchingWindow: cdk.Duration.seconds(config?.maximumBatchingWindow || 1),
+        startingPosition: config?.startingPosition || StartingPosition.TRIM_HORIZON,
+        enabled: config?.enabled ?? true,
+        consumerGroupId: config?.consumerGroupId || `lambda-${this.resourceName}-consumer-group`,
+      });
+
+      this.lambda.addEventSource(eventSource);
+    }
+  }
+
+  private applySMKTriggers(): void {
+    for (const config of this.smkConfigs) {
+      const secret = secretsmanager.Secret.fromSecretCompleteArn(
+        this.scope,
+        `${this.resourceName}-kafka-secret`,
+        config.secretArn
+      );
+
+      const eventSource = new SelfManagedKafkaEventSource({
+        bootstrapServers: config.bootstrapServers,
+        topic: config.topic,
+        authenticationMethod: config?.authenticationMethod || AuthenticationMethod.SASL_SCRAM_512_AUTH,
         secret: secret,
         batchSize: config?.batchSize || 10,
         maxBatchingWindow: cdk.Duration.seconds(config?.maximumBatchingWindow || 1),
@@ -547,7 +578,8 @@ export class LambdaBuilder {
     this.applyPolicies();
     this.applyTablePermissions();
     this.applyEventBridgeRuleTriggers();
-    this.applyKafkaTriggers();
+    this.applyMSKTriggers();
+    this.applySMKTriggers();
 
     if (this.method && this.path) {
       const sharedApi = this.getOrCreateSharedApi();
