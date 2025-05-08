@@ -178,7 +178,7 @@ app
 
 ### 📨 Event-Driven Architecture
 
-Create event-driven microservices with SQS, SNS, and S3 triggers:
+Create event-driven microservices with SQS, SNS, S3 and kafka triggers:
 
 ```typescript
 // SQS Queue consumer
@@ -195,6 +195,39 @@ app
 app
   .lambda("src/handlers/documents/process-upload")
   .addS3Trigger("arn:aws:s3:region:account:bucket/documents-bucket");
+
+// Kafka consumer
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addKafkaTrigger({
+    bootstrapServers: "your-kafka-bootstrap-server",
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:region:account:secret:your-secret-name"
+  });
+
+// Advanced Kafka consumer with custom configuration
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addKafkaTrigger({
+    bootstrapServers: "your-kafka-bootstrap-server",
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:region:account:secret:your-secret-name",
+    batchSize: 100,                    
+    maximumBatchingWindow: 5,          
+    startingPosition: StartingPosition.TRIM_HORIZON,  
+    enabled: true,                     
+    consumerGroupId: "orders-consumer-group"  
+  });
+
+The Kafka trigger configuration supports the following options:
+- `bootstrapServers`: URL of your Kafka bootstrap server
+- `topic`: Kafka topic to consume from
+- `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials
+- `batchSize`: Number of records to process in each batch (default: 10)
+- `maximumBatchingWindow`: Maximum time to wait for records in seconds (default: 1)
+- `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
+- `enabled`: Whether the trigger is enabled (default: true)
+- `consumerGroupId`: Custom consumer group ID (default: auto-generated)
 
 // EventBridge rule trigger
 app
