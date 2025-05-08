@@ -176,9 +176,9 @@ app
   .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table");
 ```
 
-### 📨 Event-Driven Architecture
+### 🔄 Event Triggers and Integration
 
-Create event-driven microservices with SQS, SNS, S3 and kafka triggers:
+Create event-driven microservices with SQS, SNS, and S3:
 
 ```typescript
 // SQS Queue consumer
@@ -195,39 +195,6 @@ app
 app
   .lambda("src/handlers/documents/process-upload")
   .addS3Trigger("arn:aws:s3:region:account:bucket/documents-bucket");
-
-// Kafka consumer
-app
-  .lambda("src/handlers/orders/process-kafka-order")
-  .addKafkaTrigger({
-    bootstrapServers: "your-kafka-bootstrap-server",
-    topic: "orders-topic",
-    secretArn: "arn:aws:secretsmanager:region:account:secret:your-secret-name"
-  });
-
-// Advanced Kafka consumer with custom configuration
-app
-  .lambda("src/handlers/orders/process-kafka-order")
-  .addKafkaTrigger({
-    bootstrapServers: "your-kafka-bootstrap-server",
-    topic: "orders-topic",
-    secretArn: "arn:aws:secretsmanager:region:account:secret:your-secret-name",
-    batchSize: 100,                    
-    maximumBatchingWindow: 5,          
-    startingPosition: StartingPosition.TRIM_HORIZON,  
-    enabled: true,                     
-    consumerGroupId: "orders-consumer-group"  
-  });
-
-The Kafka trigger configuration supports the following options:
-- `bootstrapServers`: URL of your Kafka bootstrap server
-- `topic`: Kafka topic to consume from
-- `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials
-- `batchSize`: Number of records to process in each batch (default: 10)
-- `maximumBatchingWindow`: Maximum time to wait for records in seconds (default: 1)
-- `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
-- `enabled`: Whether the trigger is enabled (default: true)
-- `consumerGroupId`: Custom consumer group ID (default: auto-generated)
 
 // EventBridge rule trigger
 app
@@ -248,6 +215,64 @@ app
     description: "Process EC2 state changes"
   });
 ```
+
+#### 📊 Kafka Integration
+
+Connect your Lambda functions to Kafka topics using either Amazon MSK or Self-Managed Kafka:
+
+```typescript
+// Amazon MSK consumer
+app
+  .lambda("src/handlers/orders/process-msk-order")
+  .addMSKTrigger({
+    clusterArn: "arn:aws:kafka:region:account:cluster/your-cluster",
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:region:account:secret/your-secret-name",
+    batchSize: 100,
+    maximumBatchingWindow: 5,
+    consumerGroupId: "orders-consumer-group"
+  });
+
+// Self-Managed Kafka consumer (e.g., Confluent Cloud)
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addSMKTrigger({
+    bootstrapServers: ["pkc-p11xm.us-east-1.aws.confluent.cloud:9099"],
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:region:account:secret/your-secret-name",
+    authenticationMethod: AuthenticationMethod.SASL_SCRAM_512_AUTH,
+    batchSize: 100,
+    maximumBatchingWindow: 5,
+    consumerGroupId: "orders-consumer-group"
+  });
+```
+
+##### Amazon MSK Trigger Configuration
+- `clusterArn`: ARN of your Amazon MSK cluster
+- `topic`: Kafka topic to consume from
+- `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials
+- `batchSize`: Number of records to process in each batch (default: 10)
+- `maximumBatchingWindow`: Maximum time to wait for records in seconds (default: 1)
+- `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
+- `enabled`: Whether the trigger is enabled (default: true)
+- `consumerGroupId`: Custom consumer group ID (default: auto-generated)
+
+##### Self-Managed Kafka Trigger Configuration
+- `bootstrapServers`: Array of Kafka broker URLs
+- `topic`: Kafka topic to consume from
+- `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials
+- `authenticationMethod`: Authentication method for Kafka (default: SASL_SCRAM_512_AUTH)
+  - `SASL_SCRAM_512_AUTH`: SASL/SCRAM authentication with SHA-512
+  - `SASL_SCRAM_256_AUTH`: SASL/SCRAM authentication with SHA-256
+  - `SASL_PLAIN_AUTH`: SASL/PLAIN authentication
+  - `BASIC_AUTH`: Basic authentication
+  - `CLIENT_CERTIFICATE_TLS_AUTH`: TLS certificate authentication
+  - `OAUTHBEARER_AUTH`: OAuth Bearer authentication
+- `batchSize`: Number of records to process in each batch (default: 10)
+- `maximumBatchingWindow`: Maximum time to wait for records in seconds (default: 1)
+- `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
+- `enabled`: Whether the trigger is enabled (default: true)
+- `consumerGroupId`: Custom consumer group ID (default: auto-generated)
 
 ### ⚙️ Environment Configuration
 

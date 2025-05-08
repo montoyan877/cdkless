@@ -6,6 +6,7 @@ import {
   EventBridgeRuleOptions
 } from './lambda-options';
 import { PolicyOptions } from './lambda-props';
+import { AuthenticationMethod } from 'aws-cdk-lib/aws-lambda-event-sources';
 
 /**
  * Configuration for SNS triggers
@@ -60,13 +61,34 @@ export interface EventBridgeRuleConfig {
 /**
  * Configuration for Kafka triggers
  */
-export interface KafkaConfig {
-  /** Bootstrap servers for Kafka */
-  bootstrapServers: string;
+export interface MSKConfig {
+  /** ARN of the MSK cluster */
+  clusterArn: string;
   /** Topic name */
   topic: string;
   /** ARN of the secret containing Kafka credentials */
   secretArn: string;
+  /** Batch size for messages */
+  batchSize?: number;
+  /** Maximum waiting time to accumulate messages in a batch */
+  maximumBatchingWindow?: number;
+  /** Starting position for the Kafka consumer */
+  startingPosition?: StartingPosition;
+  /** Whether the integration is enabled */
+  enabled?: boolean;
+  /** Consumer group ID */
+  consumerGroupId?: string;
+}
+
+export interface SMKConfig {
+  /** Bootstrap servers for Kafka */
+  bootstrapServers: string[];
+  /** Topic name */
+  topic: string;
+  /** ARN of the secret containing Kafka credentials */
+  secretArn: string;
+  /** Authentication method */
+  authenticationMethod?: AuthenticationMethod;
   /** Batch size for messages */
   batchSize?: number;
   /** Maximum waiting time to accumulate messages in a batch */
