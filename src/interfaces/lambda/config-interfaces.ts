@@ -1,3 +1,4 @@
+import { StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import {
   SnsOptions,
   SqsOptions,
@@ -54,4 +55,26 @@ export interface PolicyConfig {
 export interface EventBridgeRuleConfig {
   /** Options for the EventBridge rule */
   options: EventBridgeRuleOptions;
+}
+
+/**
+ * Configuration for Kafka triggers
+ */
+export interface KafkaConfig {
+  /** Bootstrap servers for Kafka */
+  bootstrapServers: string;
+  /** Topic name */
+  topic: string;
+  /** ARN of the secret containing Kafka credentials */
+  secretArn: string;
+  /** Batch size for messages */
+  batchSize?: number;
+  /** Maximum waiting time to accumulate messages in a batch */
+  maximumBatchingWindow?: number;
+  /** Starting position for the Kafka consumer */
+  startingPosition?: StartingPosition;
+  /** Whether the integration is enabled */
+  enabled?: boolean;
+  /** Consumer group ID */
+  consumerGroupId?: string;
 }

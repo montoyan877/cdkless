@@ -59,3 +59,4 @@ export interface EventBridgeRuleOptions {
   /** Rule name */
   ruleName?: string;
 }
+
