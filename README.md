@@ -288,6 +288,58 @@ app.lambda("src/handlers/payment/process").post("/payments").environment({
 
 By default, CdkLess uses the `STAGE` environment variable to determine the deployment stage (e.g., 'dev', 'staging', 'prod'). If not set, it defaults to 'dev'.
 
+### 🏷️ Resource Tagging
+
+CdkLess provides a simple way to manage tags for both your stack and individual resources:
+
+```typescript
+// Create a stack with tags
+const app = new CdkLess("user-services", "dev", undefined, {
+  // Tags that will be applied to the stack itself
+  stackTags: {
+    ProjectName: "user-services",
+    Owner: "tmd_ledger",
+    Critical: "false",
+    Environment: "dev"
+  },
+  // Tags that will be applied to all resources in the stack
+  resourceTags: {
+    ProjectName: "user-services",
+    Environment: "dev",
+    Department: "IT"
+  }
+});
+
+// Add more tags to the stack
+app.addStackTags({
+  CostCenter: "12345",
+  StackType: "production"
+});
+
+// Add more tags to all resources
+app.addResourceTags({
+  ManagedBy: "cdkless",
+  Version: "1.0.0"
+});
+
+// Add specific tags to a Lambda function
+app.lambda("src/handlers/users/create-user")
+  .post("/users")
+  .addTags({
+    Service: "user-service",
+    Component: "user-management"
+  });
+```
+
+#### Tag Inheritance
+
+- Stack tags are applied only to the stack itself
+- Resource tags are applied to all resources in the stack
+- Lambda-specific tags are applied only to that specific Lambda function
+- Tags are merged in the following order:
+  1. Stack resource tags
+  2. Lambda-specific tags
+
 ## 🔑 Adding Permissions to Lambda Functions
 
 Grant your Lambda functions access to AWS resources with a simple, chainable API:

@@ -34,6 +34,8 @@ import {
 } from "./interfaces/lambda";
 import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
+import { AwsResourceTags } from "./interfaces/tags";
+import { IStack } from "./interfaces/stack";
 
 let sharedApi: ApiBuilder;
 
@@ -51,6 +53,7 @@ export class LambdaBuilder {
   private isBuilt = false;
   private isAutoBuilding = false;
   private authorizer?: apigatewayv2.IHttpRouteAuthorizer;
+  private resourceTags: AwsResourceTags = {};
 
   // Store configurations for later application
   private snsConfigs: SnsConfig[] = [];
@@ -130,6 +133,16 @@ export class LambdaBuilder {
   }
 
   /**
+   * Add tags to the Lambda function
+   * @param tags Tags to add to the Lambda function
+   * @returns The LambdaBuilder instance for method chaining
+   */
+  public addTags(tags: AwsResourceTags): LambdaBuilder {
+    this.resourceTags = { ...this.resourceTags, ...tags };
+    return this;
+  }
+
+  /**
    * Creates a NodejsFunction with the current configuration values
    */
   private createNodejsFunction(): lambda.Function {
@@ -151,7 +164,7 @@ export class LambdaBuilder {
         ? `${this.resourceName}-${this.stage}`
         : this.resourceName;
 
-    return new NodejsFunction(this.scope, `${this.resourceName}-function`, {
+    const lambdaFunction = new NodejsFunction(this.scope, `${this.resourceName}-function`, {
       functionName: functionName,
       runtime: this.runtimeValue,
       memorySize: this.memorySize,
@@ -165,6 +178,19 @@ export class LambdaBuilder {
       environment: this.environmentVars,
       logGroup,
     });
+
+    if (this.scope instanceof Stack && 'getResourceTags' in this.scope) {
+      const stackResourceTags = (this.scope as IStack).getResourceTags();
+      Object.entries(stackResourceTags).forEach(([key, value]) => {
+        cdk.Tags.of(lambdaFunction).add(key, value);
+      });
+    }
+
+    Object.entries(this.resourceTags).forEach(([key, value]) => {
+      cdk.Tags.of(lambdaFunction).add(key, value);
+    });
+
+    return lambdaFunction;
   }
 
   /**
