@@ -1,13 +1,17 @@
 import * as cdk from "aws-cdk-lib";
 import { LambdaBuilder } from "./lambda-builder";
+import { AwsResourceTags, TagsConfig } from "./interfaces/tags";
+import { IStack } from "./interfaces/stack";
 
 /**
  * Base class that provides simplified methods
  * to interact with the CDK-less framework
  */
-export class CdkLess extends cdk.Stack {
+export class CdkLess extends cdk.Stack implements IStack {
   private app: cdk.App;
   protected stage: string;
+  private stackTags: AwsResourceTags = {};
+  private resourceTags: AwsResourceTags = {};
 
   /**
    * Simplified constructor that only requires the application name
@@ -15,7 +19,11 @@ export class CdkLess extends cdk.Stack {
    * @param stage Deployment environment (default: 'dev')
    * @param props Additional Stack properties (optional)
    */
-  constructor(appName: string, stage?: string, props?: cdk.StackProps) {
+  constructor(
+    appName: string, 
+    stage?: string, 
+    props?: cdk.StackProps
+  ) {
     const app = new cdk.App();
     const actualStage = stage || process.env.STAGE || "";
 
@@ -30,6 +38,41 @@ export class CdkLess extends cdk.Stack {
     process.on("beforeExit", () => {
       this.synth();
     });
+  }
+
+  /**
+   * Get the current stack tags
+   * @returns The current stack tags
+   */
+  public getStackTags(): AwsResourceTags {
+    return { ...this.stackTags };
+  }
+
+  /**
+   * Get the current resource tags
+   * @returns The current resource tags
+   */
+  public getResourceTags(): AwsResourceTags {
+    return { ...this.resourceTags };
+  }
+
+  /**
+   * Add tags to the stack
+   * @param tags Tags to add
+   */
+  public addStackTags(tags: AwsResourceTags): void {
+    this.stackTags = { ...this.stackTags, ...tags };
+    Object.entries(tags).forEach(([key, value]) => {
+      cdk.Tags.of(this).add(key, value);
+    });
+  }
+
+  /**
+   * Add tags to all resources
+   * @param tags Tags to add
+   */
+  public addResourceTags(tags: AwsResourceTags): void {
+    this.resourceTags = { ...this.resourceTags, ...tags };
   }
 
   /**
