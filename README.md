@@ -293,31 +293,24 @@ By default, CdkLess uses the `STAGE` environment variable to determine the deplo
 CdkLess provides a simple way to manage tags for both your stack and individual resources:
 
 ```typescript
-// Create a stack with tags
-const app = new CdkLess("user-services", "dev", undefined, {
-  // Tags that will be applied to the stack itself
-  stackTags: {
-    ProjectName: "user-services",
-    Owner: "tmd_ledger",
-    Critical: "false",
-    Environment: "dev"
-  },
-  // Tags that will be applied to all resources in the stack
-  resourceTags: {
-    ProjectName: "user-services",
-    Environment: "dev",
-    Department: "IT"
-  }
-});
+// Create a stack
+const app = new CdkLess("user-services");
 
-// Add more tags to the stack
+// Add tags to the stack
 app.addStackTags({
+  ProjectName: "user-services",
+  Owner: "tmd_ledger",
+  Critical: "false",
+  Environment: "dev",
   CostCenter: "12345",
   StackType: "production"
 });
 
-// Add more tags to all resources
+// Add tags to all resources
 app.addResourceTags({
+  ProjectName: "user-services",
+  Environment: "dev",
+  Department: "IT",
   ManagedBy: "cdkless",
   Version: "1.0.0"
 });

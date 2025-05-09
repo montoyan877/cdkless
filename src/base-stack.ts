@@ -18,13 +18,11 @@ export class CdkLess extends cdk.Stack implements IStack {
    * @param appName Name of the application
    * @param stage Deployment environment (default: 'dev')
    * @param props Additional Stack properties (optional)
-   * @param tagsConfig Tags configuration for the stack and resources (optional)
    */
   constructor(
     appName: string, 
     stage?: string, 
-    props?: cdk.StackProps, 
-    tagsConfig?: TagsConfig
+    props?: cdk.StackProps
   ) {
     const app = new cdk.App();
     const actualStage = stage || process.env.STAGE || "";
@@ -36,22 +34,6 @@ export class CdkLess extends cdk.Stack implements IStack {
 
     this.app = app;
     this.stage = actualStage;
-
-    this.stackTags = {
-      ProjectName: appName,
-      Environment: actualStage,
-      ...tagsConfig?.stackTags
-    };
-
-    this.resourceTags = {
-      ProjectName: appName,
-      Environment: actualStage,
-      ...tagsConfig?.resourceTags
-    };
-
-    Object.entries(this.stackTags).forEach(([key, value]) => {
-      cdk.Tags.of(this).add(key, value);
-    });
 
     process.on("beforeExit", () => {
       this.synth();
