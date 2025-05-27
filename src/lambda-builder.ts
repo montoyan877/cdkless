@@ -1,5 +1,5 @@
 import * as lambda from "aws-cdk-lib/aws-lambda";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NodejsFunction, BundlingOptions } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as sqs from "aws-cdk-lib/aws-sqs";
@@ -10,7 +10,11 @@ import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as cdk from "aws-cdk-lib";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
-import { AuthenticationMethod, ManagedKafkaEventSource, SelfManagedKafkaEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
+import {
+  AuthenticationMethod,
+  ManagedKafkaEventSource,
+  SelfManagedKafkaEventSource,
+} from "aws-cdk-lib/aws-lambda-event-sources";
 import * as events from "aws-cdk-lib/aws-events";
 import * as eventsTargets from "aws-cdk-lib/aws-events-targets";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
@@ -30,7 +34,7 @@ import {
   PolicyConfig,
   EventBridgeRuleConfig,
   MSKConfig,
-  SMKConfig
+  SMKConfig,
 } from "./interfaces/lambda";
 import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
@@ -71,6 +75,7 @@ export class LambdaBuilder {
   private timeoutDuration: cdk.Duration = cdk.Duration.seconds(30);
   private logRetentionDays: logs.RetentionDays = logs.RetentionDays.ONE_MONTH;
   private handlerPath: string;
+  private bundlingOptions?: BundlingOptions;
 
   constructor(props: LambdaBuilderProps) {
     this.scope = props.scope;
@@ -82,6 +87,9 @@ export class LambdaBuilder {
     // Extract the last segment of the handler path
     this.handlerPath = props.handler;
     this.resourceName = this.handlerPath.split("/").pop() || "";
+    
+    // Store bundling options if provided
+    this.bundlingOptions = props.bundling;
 
     // Create a proxy to handle automatic building
     return new Proxy(this, {
@@ -164,22 +172,35 @@ export class LambdaBuilder {
         ? `${this.resourceName}-${this.stage}`
         : this.resourceName;
 
-    const lambdaFunction = new NodejsFunction(this.scope, `${this.resourceName}-function`, {
-      functionName: functionName,
-      runtime: this.runtimeValue,
-      memorySize: this.memorySize,
-      timeout: this.timeoutDuration,
-      entry: `${this.handlerPath}.ts`,
-      handler: "handler",
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
-      environment: this.environmentVars,
-      logGroup,
-    });
+    // Default bundling options
+    const defaultBundling = {
+      minify: true,
+      sourceMap: false,
+      externalModules: ["aws-sdk"],
+    };
 
-    if (this.scope instanceof Stack && 'getResourceTags' in this.scope) {
+    // Merge default bundling with custom bundling options
+    const bundlingConfig = this.bundlingOptions 
+      ? { ...defaultBundling, ...this.bundlingOptions }
+      : defaultBundling;
+
+    const lambdaFunction = new NodejsFunction(
+      this.scope,
+      `${this.resourceName}-function`,
+      {
+        functionName: functionName,
+        runtime: this.runtimeValue,
+        memorySize: this.memorySize,
+        timeout: this.timeoutDuration,
+        entry: `${this.handlerPath}.ts`,
+        handler: "handler",
+        bundling: bundlingConfig,
+        environment: this.environmentVars,
+        logGroup,
+      }
+    );
+
+    if (this.scope instanceof Stack && "getResourceTags" in this.scope) {
       const stackResourceTags = (this.scope as IStack).getResourceTags();
       Object.entries(stackResourceTags).forEach(([key, value]) => {
         cdk.Tags.of(lambdaFunction).add(key, value);
@@ -235,6 +256,15 @@ export class LambdaBuilder {
    */
   public logRetention(retention: logs.RetentionDays): LambdaBuilder {
     this.logRetentionDays = retention;
+    return this;
+  }
+
+  /**
+   * Sets the bundling options for the Lambda function
+   * @param options Bundling options
+   */
+  public bundling(options: BundlingOptions): LambdaBuilder {
+    this.bundlingOptions = options;
     return this;
   }
 
@@ -350,7 +380,9 @@ export class LambdaBuilder {
    * Adds an EventBridge rule trigger to the Lambda function
    * @param options Options for the EventBridge rule
    */
-  public addEventBridgeRuleTrigger(options: EventBridgeRuleOptions): LambdaBuilder {
+  public addEventBridgeRuleTrigger(
+    options: EventBridgeRuleOptions
+  ): LambdaBuilder {
     // Store the EventBridge rule configuration for later application
     this.eventBridgeRuleConfigs.push({ options });
     return this;
@@ -395,10 +427,12 @@ export class LambdaBuilder {
    * Apply all the stored SNS configurations
    */
   private applySnsTriggers(): void {
-    this.snsConfigs.forEach(config => {
+    this.snsConfigs.forEach((config) => {
       const topic = sns.Topic.fromTopicArn(
         this.scope,
-        `${this.resourceName}-imported-topic-${this.stage}-${this.snsConfigs.indexOf(config)}`,
+        `${this.resourceName}-imported-topic-${
+          this.stage
+        }-${this.snsConfigs.indexOf(config)}`,
         config.topicArn
       );
 
@@ -410,7 +444,9 @@ export class LambdaBuilder {
       this.lambda.addEventSource(snsEventSource);
 
       this.lambda.addPermission(
-        `${this.resourceName}-sns-permission-${this.stage}-${this.snsConfigs.indexOf(config)}`,
+        `${this.resourceName}-sns-permission-${
+          this.stage
+        }-${this.snsConfigs.indexOf(config)}`,
         {
           principal: new iam.ServicePrincipal("sns.amazonaws.com"),
           sourceArn: topic.topicArn,
@@ -423,10 +459,12 @@ export class LambdaBuilder {
    * Apply all the stored SQS configurations
    */
   private applySqsTriggers(): void {
-    this.sqsConfigs.forEach(config => {
+    this.sqsConfigs.forEach((config) => {
       const queue = sqs.Queue.fromQueueArn(
         this.scope,
-        `${this.resourceName}-imported-queue-${this.stage}-${this.sqsConfigs.indexOf(config)}`,
+        `${this.resourceName}-imported-queue-${
+          this.stage
+        }-${this.sqsConfigs.indexOf(config)}`,
         config.queueArn
       );
 
@@ -447,10 +485,12 @@ export class LambdaBuilder {
    * Apply all the stored S3 configurations
    */
   private applyS3Triggers(): void {
-    this.s3Configs.forEach(config => {
+    this.s3Configs.forEach((config) => {
       const bucket = s3.Bucket.fromBucketArn(
         this.scope,
-        `${this.resourceName}-imported-bucket-${this.stage}-${this.s3Configs.indexOf(config)}`,
+        `${this.resourceName}-imported-bucket-${
+          this.stage
+        }-${this.s3Configs.indexOf(config)}`,
         config.bucketArn
       );
 
@@ -467,7 +507,7 @@ export class LambdaBuilder {
         filters.push(...config.options.filters);
       }
 
-      events.forEach(event => {
+      events.forEach((event) => {
         bucket.addEventNotification(
           event,
           new s3n.LambdaDestination(this.lambda),
@@ -488,7 +528,7 @@ export class LambdaBuilder {
    * Apply all the stored policy configurations
    */
   private applyPolicies(): void {
-    this.policyConfigs.forEach(config => {
+    this.policyConfigs.forEach((config) => {
       const policyStatement = new iam.PolicyStatement({
         effect: config.options?.effect || iam.Effect.ALLOW,
       });
@@ -524,19 +564,24 @@ export class LambdaBuilder {
    */
   private applyEventBridgeRuleTriggers(): void {
     this.eventBridgeRuleConfigs.forEach((config, index) => {
-      const ruleName = config.options.ruleName || 
+      const ruleName =
+        config.options.ruleName ||
         `${this.resourceName}-rule-${this.stage}-${index}`;
 
       // Create the rule
-      const rule = new events.Rule(this.scope, `${this.resourceName}-rule-${index}`, {
-        ruleName: ruleName,
-        description: config.options.description,
-        enabled: config.options.enabled !== false, // Default to true if not specified
-        schedule: config.options.scheduleExpression 
-          ? events.Schedule.expression(config.options.scheduleExpression) 
-          : undefined,
-        eventPattern: config.options.eventPattern,
-      });
+      const rule = new events.Rule(
+        this.scope,
+        `${this.resourceName}-rule-${index}`,
+        {
+          ruleName: ruleName,
+          description: config.options.description,
+          enabled: config.options.enabled !== false, // Default to true if not specified
+          schedule: config.options.scheduleExpression
+            ? events.Schedule.expression(config.options.scheduleExpression)
+            : undefined,
+          eventPattern: config.options.eventPattern,
+        }
+      );
 
       // Add the Lambda as a target
       rule.addTarget(new eventsTargets.LambdaFunction(this.lambda));
@@ -556,10 +601,15 @@ export class LambdaBuilder {
         topic: config.topic,
         secret: secret,
         batchSize: config?.batchSize || 10,
-        maxBatchingWindow: cdk.Duration.seconds(config?.maximumBatchingWindow || 1),
-        startingPosition: config?.startingPosition || StartingPosition.TRIM_HORIZON,
+        maxBatchingWindow: cdk.Duration.seconds(
+          config?.maximumBatchingWindow || 1
+        ),
+        startingPosition:
+          config?.startingPosition || StartingPosition.TRIM_HORIZON,
         enabled: config?.enabled ?? true,
-        consumerGroupId: config?.consumerGroupId || `lambda-${this.resourceName}-consumer-group`,
+        consumerGroupId:
+          config?.consumerGroupId ||
+          `lambda-${this.resourceName}-consumer-group`,
       });
 
       this.lambda.addEventSource(eventSource);
@@ -577,13 +627,20 @@ export class LambdaBuilder {
       const eventSource = new SelfManagedKafkaEventSource({
         bootstrapServers: config.bootstrapServers,
         topic: config.topic,
-        authenticationMethod: config?.authenticationMethod || AuthenticationMethod.SASL_SCRAM_512_AUTH,
+        authenticationMethod:
+          config?.authenticationMethod ||
+          AuthenticationMethod.SASL_SCRAM_512_AUTH,
         secret: secret,
         batchSize: config?.batchSize || 10,
-        maxBatchingWindow: cdk.Duration.seconds(config?.maximumBatchingWindow || 1),
-        startingPosition: config?.startingPosition || StartingPosition.TRIM_HORIZON,
+        maxBatchingWindow: cdk.Duration.seconds(
+          config?.maximumBatchingWindow || 1
+        ),
+        startingPosition:
+          config?.startingPosition || StartingPosition.TRIM_HORIZON,
         enabled: config?.enabled ?? true,
-        consumerGroupId: config?.consumerGroupId || `lambda-${this.resourceName}-consumer-group`,
+        consumerGroupId:
+          config?.consumerGroupId ||
+          `lambda-${this.resourceName}-consumer-group`,
       });
 
       this.lambda.addEventSource(eventSource);

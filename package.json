@@ -1,6 +1,6 @@
 {
   "name": "cdkless",
-  "version": "0.1.0-beta.20",
+  "version": "0.1.0-beta.21",
   "description": "Ultra-simplified AWS CDK framework for building serverless microservices",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -54,8 +54,8 @@
     "typescript": "^5.0.4"
   },
   "peerDependencies": {
-    "constructs": "^10.0.0",
-    "aws-cdk-lib": "^2.0.0"
+    "aws-cdk-lib": "^2.123.0",
+    "constructs": "^10.3.0"
   },
   "engines": {
     "node": ">=14.0.0"
