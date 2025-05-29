@@ -35,6 +35,7 @@ import {
   EventBridgeRuleConfig,
   MSKConfig,
   SMKConfig,
+  DynamoStreamsConfig,
 } from "./interfaces/lambda";
 import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
@@ -68,6 +69,7 @@ export class LambdaBuilder {
   private eventBridgeRuleConfigs: EventBridgeRuleConfig[] = [];
   private mskConfigs: MSKConfig[] = [];
   private smkConfigs: SMKConfig[] = [];
+  private dynamoStreamsConfigs: DynamoStreamsConfig[] = [];
 
   // New configuration properties with default values
   private runtimeValue: lambda.Runtime = lambda.Runtime.NODEJS_22_X;
@@ -399,6 +401,17 @@ export class LambdaBuilder {
   }
 
   /**
+   * Agrega un trigger de DynamoDB Streams a la función Lambda
+   * @param tableArn ARN de la tabla de DynamoDB que tiene habilitados los streams
+   * @param config Configuración opcional para el trigger de DynamoDB Streams
+   * @returns La instancia de LambdaBuilder para encadenar métodos
+   */
+  public addDynamoStreamsTrigger(tableArn: string, config?: DynamoStreamsConfig): LambdaBuilder {
+    this.dynamoStreamsConfigs.push({ tableArn, ...config });
+    return this;
+  }
+
+  /**
    * Gets or creates a shared API Gateway
    * @returns An instance of ApiBuilder
    */
@@ -647,6 +660,29 @@ export class LambdaBuilder {
     }
   }
 
+  private applyDynamoStreamsTriggers(): void {
+    this.dynamoStreamsConfigs.forEach((config, index) => {
+      const table = dynamodb.Table.fromTableArn(
+        this.scope,
+        `${this.resourceName}-imported-table-${this.stage}-${index}`,
+        config.tableArn
+      );
+
+      const eventSource = new lambdaEventSources.DynamoEventSource(table, {
+        batchSize: config.batchSize || 10,
+        maxBatchingWindow: config.maxBatchingWindow 
+          ? cdk.Duration.seconds(config.maxBatchingWindow)
+          : undefined,
+        startingPosition: config.startingPosition || StartingPosition.TRIM_HORIZON,
+        enabled: config.enabled ?? true,
+        retryAttempts: config.retryAttempts,
+        reportBatchItemFailures: config.reportBatchItemFailures,
+      });
+
+      this.lambda.addEventSource(eventSource);
+    });
+  }
+
   public build(): lambda.Function {
     if (this.isBuilt) {
       return this.lambda;
@@ -663,6 +699,7 @@ export class LambdaBuilder {
     this.applyEventBridgeRuleTriggers();
     this.applyMSKTriggers();
     this.applySMKTriggers();
+    this.applyDynamoStreamsTriggers();
 
     if (this.method && this.path) {
       const sharedApi = this.getOrCreateSharedApi();

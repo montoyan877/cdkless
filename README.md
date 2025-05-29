@@ -196,6 +196,18 @@ app
   .lambda("src/handlers/documents/process-upload")
   .addS3Trigger("arn:aws:s3:region:account:bucket/documents-bucket");
 
+// DynamoDB Streams trigger
+app
+  .lambda("src/handlers/orders/process-order-changes")
+  .addDynamoStreamsTrigger("arn:aws:dynamodb:region:account:table/orders-table", {
+    batchSize: 10,
+    maxBatchingWindow: 5,
+    startingPosition: StartingPosition.TRIM_HORIZON,
+    enabled: true,
+    retryAttempts: 3,
+    reportBatchItemFailures: true
+  });
+
 // EventBridge rule trigger
 app
   .lambda("src/handlers/scheduled/daily-report")
@@ -273,6 +285,44 @@ app
 - `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
 - `enabled`: Whether the trigger is enabled (default: true)
 - `consumerGroupId`: Custom consumer group ID (default: auto-generated)
+
+##### DynamoDB Streams Trigger Configuration
+
+The DynamoDB Streams trigger allows processing real-time changes from a DynamoDB table. The configuration includes:
+
+```typescript
+interface DynamoStreamsConfig {
+  /** ARN of the DynamoDB table with streams enabled */
+  tableArn: string;
+  /** Batch size for messages (default: 10) */
+  batchSize?: number;
+  /** Maximum waiting time to accumulate messages in a batch (in seconds) */
+  maxBatchingWindow?: number;
+  /** Starting position for the stream consumer */
+  startingPosition?: StartingPosition;
+  /** Whether the integration is enabled (default: true) */
+  enabled?: boolean;
+  /** Number of retry attempts for failed records */
+  retryAttempts?: number;
+  /** Whether to report individual batch item failures */
+  reportBatchItemFailures?: boolean;
+}
+```
+
+Example usage with all options:
+
+```typescript
+app
+  .lambda("src/handlers/orders/process-order-changes")
+  .addDynamoStreamsTrigger("arn:aws:dynamodb:region:account:table/orders-table", {
+    batchSize: 10,                    // Process 10 records per batch
+    maxBatchingWindow: 5,             // Wait up to 5 seconds to accumulate records
+    startingPosition: StartingPosition.TRIM_HORIZON,  // Start from the beginning of the stream
+    enabled: true,                    // Enable the trigger
+    retryAttempts: 3,                 // Retry 3 times in case of failure
+    reportBatchItemFailures: true     // Report individual batch item failures
+  });
+```
 
 ### ⚙️ Environment Configuration
 

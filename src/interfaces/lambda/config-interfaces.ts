@@ -100,3 +100,23 @@ export interface SMKConfig {
   /** Consumer group ID */
   consumerGroupId?: string;
 }
+
+/**
+ * Configuration for DynamoDB Streams triggers
+ */
+export interface DynamoStreamsConfig {
+  /** ARN of the DynamoDB table */
+  tableArn: string;
+  /** Batch size for messages */
+  batchSize?: number;
+  /** Maximum waiting time to accumulate messages in a batch */
+  maxBatchingWindow?: number;
+  /** Starting position for the stream consumer */
+  startingPosition?: StartingPosition;
+  /** Whether the integration is enabled */
+  enabled?: boolean;
+  /** Retry attempts for failed records */
+  retryAttempts?: number;
+  /** Whether to report batch item failures */
+  reportBatchItemFailures?: boolean;
+}
