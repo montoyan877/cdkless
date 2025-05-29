@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 
 /**
  * Required properties to create a LambdaBuilder
@@ -9,6 +10,8 @@ export interface LambdaBuilderProps {
   scope: Construct; 
   /** Only required parameter - path to handler (without extension) */
   handler: string;
+  /** Optional bundling configuration for the Lambda function */
+  bundling?: BundlingOptions;
 }
 
 /**
