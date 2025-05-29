@@ -400,6 +400,12 @@ export class LambdaBuilder {
     return this;
   }
 
+  /**
+   * Agrega un trigger de DynamoDB Streams a la función Lambda
+   * @param tableArn ARN de la tabla de DynamoDB que tiene habilitados los streams
+   * @param config Configuración opcional para el trigger de DynamoDB Streams
+   * @returns La instancia de LambdaBuilder para encadenar métodos
+   */
   public addDynamoStreamsTrigger(tableArn: string, config?: DynamoStreamsConfig): LambdaBuilder {
     this.dynamoStreamsConfigs.push({ tableArn, ...config });
     return this;

@@ -196,6 +196,18 @@ app
   .lambda("src/handlers/documents/process-upload")
   .addS3Trigger("arn:aws:s3:region:account:bucket/documents-bucket");
 
+// DynamoDB Streams trigger
+app
+  .lambda("src/handlers/orders/process-order-changes")
+  .addDynamoStreamsTrigger("arn:aws:dynamodb:region:account:table/orders-table", {
+    batchSize: 10,
+    maxBatchingWindow: 5,
+    startingPosition: StartingPosition.TRIM_HORIZON,
+    enabled: true,
+    retryAttempts: 3,
+    reportBatchItemFailures: true
+  });
+
 // EventBridge rule trigger
 app
   .lambda("src/handlers/scheduled/daily-report")
@@ -273,6 +285,44 @@ app
 - `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
 - `enabled`: Whether the trigger is enabled (default: true)
 - `consumerGroupId`: Custom consumer group ID (default: auto-generated)
+
+##### DynamoDB Streams Trigger Configuration
+
+El trigger de DynamoDB Streams permite procesar cambios en tiempo real de una tabla de DynamoDB. La configuración incluye:
+
+```typescript
+interface DynamoStreamsConfig {
+  /** ARN de la tabla de DynamoDB que tiene habilitados los streams */
+  tableArn: string;
+  /** Tamaño del lote de mensajes (por defecto: 10) */
+  batchSize?: number;
+  /** Tiempo máximo de espera para acumular mensajes en un lote (en segundos) */
+  maxBatchingWindow?: number;
+  /** Posición inicial para el consumidor del stream */
+  startingPosition?: StartingPosition;
+  /** Indica si la integración está habilitada (por defecto: true) */
+  enabled?: boolean;
+  /** Número de intentos de reintento para registros fallidos */
+  retryAttempts?: number;
+  /** Indica si se deben reportar fallos de elementos individuales del lote */
+  reportBatchItemFailures?: boolean;
+}
+```
+
+Ejemplo de uso con todas las opciones:
+
+```typescript
+app
+  .lambda("src/handlers/orders/process-order-changes")
+  .addDynamoStreamsTrigger("arn:aws:dynamodb:region:account:table/orders-table", {
+    batchSize: 10,                    // Procesar 10 registros por lote
+    maxBatchingWindow: 5,             // Esperar hasta 5 segundos para acumular registros
+    startingPosition: StartingPosition.TRIM_HORIZON,  // Comenzar desde el inicio del stream
+    enabled: true,                    // Habilitar el trigger
+    retryAttempts: 3,                 // Reintentar 3 veces en caso de fallo
+    reportBatchItemFailures: true     // Reportar fallos individuales en el lote
+  });
+```
 
 ### ⚙️ Environment Configuration
 
