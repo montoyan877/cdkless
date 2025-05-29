@@ -288,39 +288,39 @@ app
 
 ##### DynamoDB Streams Trigger Configuration
 
-El trigger de DynamoDB Streams permite procesar cambios en tiempo real de una tabla de DynamoDB. La configuración incluye:
+The DynamoDB Streams trigger allows processing real-time changes from a DynamoDB table. The configuration includes:
 
 ```typescript
 interface DynamoStreamsConfig {
-  /** ARN de la tabla de DynamoDB que tiene habilitados los streams */
+  /** ARN of the DynamoDB table with streams enabled */
   tableArn: string;
-  /** Tamaño del lote de mensajes (por defecto: 10) */
+  /** Batch size for messages (default: 10) */
   batchSize?: number;
-  /** Tiempo máximo de espera para acumular mensajes en un lote (en segundos) */
+  /** Maximum waiting time to accumulate messages in a batch (in seconds) */
   maxBatchingWindow?: number;
-  /** Posición inicial para el consumidor del stream */
+  /** Starting position for the stream consumer */
   startingPosition?: StartingPosition;
-  /** Indica si la integración está habilitada (por defecto: true) */
+  /** Whether the integration is enabled (default: true) */
   enabled?: boolean;
-  /** Número de intentos de reintento para registros fallidos */
+  /** Number of retry attempts for failed records */
   retryAttempts?: number;
-  /** Indica si se deben reportar fallos de elementos individuales del lote */
+  /** Whether to report individual batch item failures */
   reportBatchItemFailures?: boolean;
 }
 ```
 
-Ejemplo de uso con todas las opciones:
+Example usage with all options:
 
 ```typescript
 app
   .lambda("src/handlers/orders/process-order-changes")
   .addDynamoStreamsTrigger("arn:aws:dynamodb:region:account:table/orders-table", {
-    batchSize: 10,                    // Procesar 10 registros por lote
-    maxBatchingWindow: 5,             // Esperar hasta 5 segundos para acumular registros
-    startingPosition: StartingPosition.TRIM_HORIZON,  // Comenzar desde el inicio del stream
-    enabled: true,                    // Habilitar el trigger
-    retryAttempts: 3,                 // Reintentar 3 veces en caso de fallo
-    reportBatchItemFailures: true     // Reportar fallos individuales en el lote
+    batchSize: 10,                    // Process 10 records per batch
+    maxBatchingWindow: 5,             // Wait up to 5 seconds to accumulate records
+    startingPosition: StartingPosition.TRIM_HORIZON,  // Start from the beginning of the stream
+    enabled: true,                    // Enable the trigger
+    retryAttempts: 3,                 // Retry 3 times in case of failure
+    reportBatchItemFailures: true     // Report individual batch item failures
   });
 ```
 
