@@ -400,8 +400,8 @@ export class LambdaBuilder {
     return this;
   }
 
-  public addDynamoStreamsTrigger(config: DynamoStreamsConfig): LambdaBuilder {
-    this.dynamoStreamsConfigs.push(config);
+  public addDynamoStreamsTrigger(tableArn: string, config?: DynamoStreamsConfig): LambdaBuilder {
+    this.dynamoStreamsConfigs.push({ tableArn, ...config });
     return this;
   }
 
