@@ -775,19 +775,19 @@ export class LambdaBuilder {
    * @example
    * // Basic VPC configuration
    * app.lambda("src/handlers/users/get-user")
-   *   .setVpcConfig({
+   *   .addVpcConfig({
    *     vpcId: "vpc-1234567890abcdef0"
    *   });
    * 
    * // Full VPC configuration with subnets and security groups
    * app.lambda("src/handlers/users/get-user")
-   *   .setVpcConfig({
+   *   .addVpcConfig({
    *     vpcId: "vpc-1234567890abcdef0",
    *     subnetIds: ["subnet-1234567890abcdef0", "subnet-0987654321fedcba0"],
    *     securityGroupIds: ["sg-1234567890abcdef0"]
    *   });
    */
-  public setVpcConfig(vpcConfig: IVpcConfig): LambdaBuilder {
+  public addVpcConfig(vpcConfig: IVpcConfig): LambdaBuilder {
     this.vpcConfig = vpcConfig;
     return this;
   }
