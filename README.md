@@ -338,6 +338,31 @@ app.lambda("src/handlers/payment/process").post("/payments").environment({
 
 By default, CdkLess uses the `STAGE` environment variable to determine the deployment stage (e.g., 'dev', 'staging', 'prod'). If not set, it defaults to 'dev'.
 
+### 🌐 VPC Configuration
+
+Configure your Lambda functions to run within a VPC:
+
+```typescript
+// Basic VPC configuration
+app.lambda("src/handlers/users/get-user")
+  .setVpcConfig({
+    vpcId: "vpc-1234567890abcdef0"
+  });
+
+// Full VPC configuration with subnets and security groups
+app.lambda("src/handlers/users/get-user")
+  .setVpcConfig({
+    vpcId: "vpc-1234567890abcdef0",
+    subnetIds: ["subnet-1234567890abcdef0", "subnet-0987654321fedcba0"],
+    securityGroupIds: ["sg-1234567890abcdef0"]
+  });
+```
+
+The VPC configuration supports:
+- `vpcId`: The ID of the VPC to place the Lambda function in
+- `subnetIds`: Optional array of subnet IDs where the Lambda function will be placed
+- `securityGroupIds`: Optional array of security group IDs to associate with the Lambda function
+
 ### 🏷️ Resource Tagging
 
 CdkLess provides a simple way to manage tags for both your stack and individual resources:
