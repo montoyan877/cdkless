@@ -41,6 +41,8 @@ import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
 import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
+import { IVpcConfig } from "./interfaces/lambda/lambda-vpc";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
 
 let sharedApi: ApiBuilder;
 
@@ -59,6 +61,7 @@ export class LambdaBuilder {
   private isAutoBuilding = false;
   private authorizer?: apigatewayv2.IHttpRouteAuthorizer;
   private resourceTags: AwsResourceTags = {};
+  private vpcConfig?: IVpcConfig;
 
   // Store configurations for later application
   private snsConfigs: SnsConfig[] = [];
@@ -186,6 +189,34 @@ export class LambdaBuilder {
       ? { ...defaultBundling, ...this.bundlingOptions }
       : defaultBundling;
 
+    let vpc: ec2.IVpc | undefined;
+    let subnets: ec2.ISubnet[] | undefined;
+    let securityGroups: ec2.ISecurityGroup[] | undefined;
+    if (this.vpcConfig) {
+      vpc = ec2.Vpc.fromLookup(this.scope, `${this.resourceName}-vpc`, {
+        vpcId: this.vpcConfig.vpcId,
+      });
+      if (this.vpcConfig.subnetIds) {
+        subnets = this.vpcConfig.subnetIds.map((subnetId) =>
+          ec2.Subnet.fromSubnetId(
+            this.scope,
+            `${this.resourceName}-subnet-${subnetId}`,
+            subnetId
+          )
+        );
+      }
+      if (this.vpcConfig.securityGroupIds) {
+        securityGroups = this.vpcConfig.securityGroupIds.map(
+          (securityGroupId) =>
+            ec2.SecurityGroup.fromSecurityGroupId(
+              this.scope,
+              `${this.resourceName}-security-group-${securityGroupId}`,
+              securityGroupId
+            )
+        );
+      }
+    }
+
     const lambdaFunction = new NodejsFunction(
       this.scope,
       `${this.resourceName}-function`,
@@ -199,6 +230,9 @@ export class LambdaBuilder {
         bundling: bundlingConfig,
         environment: this.environmentVars,
         logGroup,
+        vpc,
+        vpcSubnets: subnets ? { subnets } : undefined,
+        securityGroups,
       }
     );
 
@@ -729,5 +763,32 @@ export class LambdaBuilder {
 
   static getSharedApi(): ApiBuilder | undefined {
     return sharedApi;
+  }
+
+  /**
+   * Sets the VPC configuration for the Lambda function
+   * @param vpcConfig Configuration object containing VPC settings
+   * @param vpcConfig.vpcId The ID of the VPC to place the Lambda function in
+   * @param vpcConfig.subnetIds Optional array of subnet IDs where the Lambda function will be placed
+   * @param vpcConfig.securityGroupIds Optional array of security group IDs to associate with the Lambda function
+   * @returns The LambdaBuilder instance for method chaining
+   * @example
+   * // Basic VPC configuration
+   * app.lambda("src/handlers/users/get-user")
+   *   .setVpcConfig({
+   *     vpcId: "vpc-1234567890abcdef0"
+   *   });
+   * 
+   * // Full VPC configuration with subnets and security groups
+   * app.lambda("src/handlers/users/get-user")
+   *   .setVpcConfig({
+   *     vpcId: "vpc-1234567890abcdef0",
+   *     subnetIds: ["subnet-1234567890abcdef0", "subnet-0987654321fedcba0"],
+   *     securityGroupIds: ["sg-1234567890abcdef0"]
+   *   });
+   */
+  public setVpcConfig(vpcConfig: IVpcConfig): LambdaBuilder {
+    this.vpcConfig = vpcConfig;
+    return this;
   }
 }
