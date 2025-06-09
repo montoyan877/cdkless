@@ -105,6 +105,8 @@ export interface SMKConfig {
  * Configuration for DynamoDB Streams triggers
  */
 export interface DynamoStreamsConfig {
+  /** Name of the DynamoDB table */
+  tableName?: string;
   /** ARN of the DynamoDB table */
   tableArn: string;
   /** Batch size for messages */
