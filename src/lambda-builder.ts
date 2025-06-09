@@ -12,6 +12,8 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import {
   AuthenticationMethod,
+  DynamoEventSource,
+  DynamoEventSourceProps,
   ManagedKafkaEventSource,
   SelfManagedKafkaEventSource,
 } from "aws-cdk-lib/aws-lambda-event-sources";
@@ -37,12 +39,13 @@ import {
   SMKConfig,
   DynamoStreamsConfig,
 } from "./interfaces/lambda";
-import { StartingPosition } from "aws-cdk-lib/aws-lambda";
+import { FilterCriteria, StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
 import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
 import { IVpcConfig } from "./interfaces/lambda/lambda-vpc";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import { Table } from "aws-cdk-lib/aws-dynamodb";
 
 let sharedApi: ApiBuilder;
 
@@ -440,8 +443,8 @@ export class LambdaBuilder {
    * @param config Configuración opcional para el trigger de DynamoDB Streams
    * @returns La instancia de LambdaBuilder para encadenar métodos
    */
-  public addDynamoStreamsTrigger(tableArn: string, config?: DynamoStreamsConfig): LambdaBuilder {
-    this.dynamoStreamsConfigs.push({ tableArn, ...config });
+  public addDynamoStreamsTrigger(config: DynamoStreamsConfig): LambdaBuilder {
+    this.dynamoStreamsConfigs.push(config);
     return this;
   }
 
@@ -695,26 +698,29 @@ export class LambdaBuilder {
   }
 
   private applyDynamoStreamsTriggers(): void {
-    this.dynamoStreamsConfigs.forEach((config, index) => {
-      const table = dynamodb.Table.fromTableArn(
+    for (const config of this.dynamoStreamsConfigs) {
+      const functionName = config.tableName ? Table.fromTableName : Table.fromTableArn;
+      const source = config.tableName ? config.tableName : config.tableArn;
+      const table: dynamodb.ITable = functionName(
         this.scope,
-        `${this.resourceName}-imported-table-${this.stage}-${index}`,
-        config.tableArn
+        `${this.resourceName}-imported-table-${this.stage}-${this.dynamoStreamsConfigs.indexOf(config)}`,
+        source
       );
-
-      const eventSource = new lambdaEventSources.DynamoEventSource(table, {
+      const props: DynamoEventSourceProps = {
         batchSize: config.batchSize || 10,
         maxBatchingWindow: config.maxBatchingWindow 
           ? cdk.Duration.seconds(config.maxBatchingWindow)
-          : undefined,
+          : cdk.Duration.seconds(1),
         startingPosition: config.startingPosition || StartingPosition.TRIM_HORIZON,
         enabled: config.enabled ?? true,
         retryAttempts: config.retryAttempts,
         reportBatchItemFailures: config.reportBatchItemFailures,
-      });
+        filters: config.filters ? config.filters.map(filter => FilterCriteria.filter(filter)) : undefined,
+      }
+      const eventSource = new DynamoEventSource(table, props);
 
       this.lambda.addEventSource(eventSource);
-    });
+    }
   }
 
   public build(): lambda.Function {
