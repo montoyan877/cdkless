@@ -1,4 +1,4 @@
-import { StartingPosition } from 'aws-cdk-lib/aws-lambda';
+import { FilterCriteria, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import {
   SnsOptions,
   SqsOptions,
@@ -121,4 +121,6 @@ export interface DynamoStreamsConfig {
   retryAttempts?: number;
   /** Whether to report batch item failures */
   reportBatchItemFailures?: boolean;
+  /** Filters for the DynamoDB stream */
+  filters?: FilterCriteria[];
 }

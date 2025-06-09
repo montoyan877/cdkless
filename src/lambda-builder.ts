@@ -39,7 +39,7 @@ import {
   SMKConfig,
   DynamoStreamsConfig,
 } from "./interfaces/lambda";
-import { StartingPosition } from "aws-cdk-lib/aws-lambda";
+import { FilterCriteria, StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
 import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
@@ -715,6 +715,7 @@ export class LambdaBuilder {
         enabled: config.enabled ?? true,
         retryAttempts: config.retryAttempts,
         reportBatchItemFailures: config.reportBatchItemFailures,
+        filters: config.filters ? config.filters.map(filter => FilterCriteria.filter(filter)) : undefined,
       }
       const eventSource = new DynamoEventSource(table, props);
 
