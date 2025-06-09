@@ -12,6 +12,8 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import {
   AuthenticationMethod,
+  DynamoEventSource,
+  DynamoEventSourceProps,
   ManagedKafkaEventSource,
   SelfManagedKafkaEventSource,
 } from "aws-cdk-lib/aws-lambda-event-sources";
@@ -41,6 +43,7 @@ import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
 import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
+import { Table } from "aws-cdk-lib/aws-dynamodb";
 
 let sharedApi: ApiBuilder;
 
@@ -406,8 +409,8 @@ export class LambdaBuilder {
    * @param config Configuración opcional para el trigger de DynamoDB Streams
    * @returns La instancia de LambdaBuilder para encadenar métodos
    */
-  public addDynamoStreamsTrigger(tableArn: string, config?: DynamoStreamsConfig): LambdaBuilder {
-    this.dynamoStreamsConfigs.push({ tableArn, ...config });
+  public addDynamoStreamsTrigger(config: DynamoStreamsConfig): LambdaBuilder {
+    this.dynamoStreamsConfigs.push(config);
     return this;
   }
 
@@ -661,26 +664,26 @@ export class LambdaBuilder {
   }
 
   private applyDynamoStreamsTriggers(): void {
-    this.dynamoStreamsConfigs.forEach((config, index) => {
-      const table = dynamodb.Table.fromTableArn(
+    for (const config of this.dynamoStreamsConfigs) {
+      const table: dynamodb.ITable = Table.fromTableArn(
         this.scope,
-        `${this.resourceName}-imported-table-${this.stage}-${index}`,
+        `${this.resourceName}-imported-table-${this.stage}-${this.dynamoStreamsConfigs.indexOf(config)}`,
         config.tableArn
       );
-
-      const eventSource = new lambdaEventSources.DynamoEventSource(table, {
+      const props: DynamoEventSourceProps = {
         batchSize: config.batchSize || 10,
         maxBatchingWindow: config.maxBatchingWindow 
           ? cdk.Duration.seconds(config.maxBatchingWindow)
-          : undefined,
+          : cdk.Duration.seconds(1),
         startingPosition: config.startingPosition || StartingPosition.TRIM_HORIZON,
         enabled: config.enabled ?? true,
         retryAttempts: config.retryAttempts,
         reportBatchItemFailures: config.reportBatchItemFailures,
-      });
+      }
+      const eventSource = new DynamoEventSource(table, props);
 
       this.lambda.addEventSource(eventSource);
-    });
+    }
   }
 
   public build(): lambda.Function {
