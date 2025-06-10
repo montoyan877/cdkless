@@ -699,12 +699,10 @@ export class LambdaBuilder {
 
   private applyDynamoStreamsTriggers(): void {
     for (const config of this.dynamoStreamsConfigs) {
-      const functionName = config.tableName ? Table.fromTableName : Table.fromTableArn;
-      const source = config.tableName ? config.tableName : config.tableArn;
-      const table: dynamodb.ITable = functionName(
+      const table: dynamodb.ITable = Table.fromTableArn(
         this.scope,
-        `${this.resourceName}-imported-table-${this.stage}-${this.dynamoStreamsConfigs.indexOf(config)}`,
-        source
+        config.tableName,
+        config.tableArn
       );
       const props: DynamoEventSourceProps = {
         batchSize: config.batchSize || 10,
