@@ -2,7 +2,15 @@ import * as cdk from "aws-cdk-lib";
 import { LambdaBuilder } from "./lambda-builder";
 import { AwsResourceTags, TagsConfig } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
+import {
+  Code,
+  ILayerVersion,
+  LayerVersion,
+  LayerVersionProps,
+} from "aws-cdk-lib/aws-lambda";
+import path from "path";
 
+let sharedLayer: ILayerVersion;
 /**
  * Base class that provides simplified methods
  * to interact with the CDK-less framework
@@ -19,11 +27,7 @@ export class CdkLess extends cdk.Stack implements IStack {
    * @param stage Deployment environment (default: 'dev')
    * @param props Additional Stack properties (optional)
    */
-  constructor(
-    appName: string, 
-    stage?: string, 
-    props?: cdk.StackProps
-  ) {
+  constructor(appName: string, stage?: string, props?: cdk.StackProps) {
     const app = new cdk.App();
     const actualStage = stage || process.env.STAGE || "";
 
@@ -38,6 +42,39 @@ export class CdkLess extends cdk.Stack implements IStack {
     process.on("beforeExit", () => {
       this.synth();
     });
+  }
+
+  public setSharedLayer(
+    layerPath: string,
+    options?: LayerVersionProps
+  ): ILayerVersion {
+    if (sharedLayer) return sharedLayer;
+
+    const appName = this.stackName.replace(`-${this.stage}`, "");
+    const layerName =
+      this.stage.length > 0
+        ? `${appName}-layer-${this.stage}`
+        : `${appName}-layer`;
+
+    const code = Code.fromAsset(path.join(__dirname, layerPath));
+    if (!code) {
+      throw "Shared layer not found";
+    }
+
+    const layer = new LayerVersion(this, layerName, {
+      code,
+      ...options,
+    });
+
+    console.log(`✅ Shared layer created: ${layerName}`);
+
+    sharedLayer = layer;
+
+    return layer;
+  }
+
+  static getSharedLayer(): ILayerVersion | undefined {
+    return sharedLayer;
   }
 
   /**
