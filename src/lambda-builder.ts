@@ -160,6 +160,11 @@ export class LambdaBuilder {
     return this;
   }
 
+  /**
+   * Adds layers to the Lambda function
+   * @param layers Layers to add to the Lambda function
+   * @returns The LambdaBuilder instance for method chaining
+   */
   public addLayers(layers: lambda.ILayerVersion[]): LambdaBuilder {
     this.layers = [...this.layers, ...layers];
     return this;
