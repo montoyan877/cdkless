@@ -9,6 +9,7 @@ This document provides detailed information about the CDKless API, showing vario
   - [LambdaBuilder](#lambdabuilder)
   - [ApiBuilder](#apibuilder)
 - [Lambda Configuration](#lambda-configuration)
+- [Lambda Layers](#lambda-layers)
 - [API Gateway Integration](#api-gateway-integration)
 - [Event Sources](#event-sources)
 - [Resource Permissions](#resource-permissions)
@@ -612,6 +613,71 @@ app
     API_KEY: 'secret-api-key'
   })
   .addS3Permissions('arn:aws:s3:region:account:bucket/images-bucket');
+```
+
+## Lambda Layers
+
+CDKless provides comprehensive support for Lambda layers, including both shared layers that are automatically applied to all functions and individual layers that can be selectively added to specific functions.
+
+### Shared Layer Configuration
+
+Configure a shared layer that will be automatically attached to all Lambda functions in your stack:
+
+```typescript
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+
+const app = new CdkLess('my-service');
+
+// Basic shared layer
+app.setSharedLayer('../layers/common-utilities');
+
+// Advanced shared layer with full configuration
+app.setSharedLayer('../layers/shared-dependencies', {
+  description: 'Common utilities and dependencies for all Lambda functions',
+  compatibleRuntimes: [
+    lambda.Runtime.NODEJS_18_X,
+    lambda.Runtime.NODEJS_20_X,
+    lambda.Runtime.NODEJS_22_X
+  ],
+  layerVersionName: 'shared-dependencies-layer',
+  removalPolicy: cdk.RemovalPolicy.RETAIN
+});
+
+// All subsequent Lambda functions will automatically include the shared layer
+app.lambda('src/handlers/users/get-user').get('/users/:id');
+app.lambda('src/handlers/orders/create-order').post('/orders');
+```
+
+### Individual Layer Configuration
+
+Add specific layers to individual Lambda functions:
+
+```typescript
+// Create specialized layers
+const databaseLayer = new lambda.LayerVersion(app, 'database-layer', {
+  code: lambda.Code.fromAsset('../layers/database-utilities'),
+  description: 'Database connection and ORM utilities',
+  compatibleRuntimes: [lambda.Runtime.NODEJS_22_X]
+});
+
+const imageProcessingLayer = new lambda.LayerVersion(app, 'image-processing-layer', {
+  code: lambda.Code.fromAsset('../layers/image-processing'),
+  description: 'Image processing and manipulation tools',
+  compatibleRuntimes: [lambda.Runtime.NODEJS_22_X]
+});
+
+// Apply layers selectively
+app.lambda('src/handlers/users/create-user')
+  .post('/users')
+  .addLayers([databaseLayer]); // Only database utilities
+
+app.lambda('src/handlers/images/resize')
+  .post('/images/resize')  
+  .addLayers([imageProcessingLayer]); // Only image processing
+
+app.lambda('src/handlers/users/upload-avatar')
+  .post('/users/:id/avatar')
+  .addLayers([databaseLayer, imageProcessingLayer]); // Both layers
 ```
 
 ## API Gateway Integration

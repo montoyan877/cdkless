@@ -1,6 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import { LambdaBuilder } from "./lambda-builder";
-import { AwsResourceTags, TagsConfig } from "./interfaces/tags";
+import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
 import {
   Code,
