@@ -713,21 +713,13 @@ export class LambdaBuilder {
    * @returns void
    */
   private applyDynamoStreamsTriggers(): void {
-    this.dynamoStreamsConfigs.forEach((config, index) => {
+    this.dynamoStreamsConfigs.forEach((config) => {
       const { tableArn, tableName, options } = config;
-      
-      // Buscar la tabla por ARN
       const table = dynamodb.Table.fromTableArn(
         this.scope,
-        `${tableName}-imported-table-${this.stage}-${index}`,
+        `${tableName}-reference`,
         tableArn
       );
-
-      // Verificar que la tabla existe
-      if (!table) {
-        throw new Error(`No se pudo encontrar la tabla DynamoDB con ARN: ${tableArn}`);
-      }
-
       const props: DynamoEventSourceProps = {
         batchSize: options?.batchSize || 10,
         maxBatchingWindow: cdk.Duration.seconds(
