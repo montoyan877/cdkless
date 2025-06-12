@@ -444,8 +444,8 @@ export class LambdaBuilder {
    * @param config Optional configuration for the DynamoDB Streams trigger
    * @returns The LambdaBuilder instance for method chaining
    */
-  public addDynamoStreamsTrigger(tableArn: string, options?: DynamoStreamsOptions): LambdaBuilder {
-    this.dynamoStreamsConfigs.push({tableArn, options});
+  public addDynamoStreamsTrigger(tableArn: string, tableName: string, options?: DynamoStreamsOptions): LambdaBuilder {
+    this.dynamoStreamsConfigs.push({tableArn, tableName, options});
     return this;
   }
 
@@ -714,12 +714,20 @@ export class LambdaBuilder {
    */
   private applyDynamoStreamsTriggers(): void {
     this.dynamoStreamsConfigs.forEach((config, index) => {
-      const { tableArn, options } = config;
-      const table: dynamodb.ITable = Table.fromTableArn(
+      const { tableArn, tableName, options } = config;
+      
+      // Buscar la tabla por ARN
+      const table = dynamodb.Table.fromTableArn(
         this.scope,
-        `${this.resourceName}-imported-table-${this.stage}-${index}`,
+        `${tableName}-imported-table-${this.stage}-${index}`,
         tableArn
       );
+
+      // Verificar que la tabla existe
+      if (!table) {
+        throw new Error(`No se pudo encontrar la tabla DynamoDB con ARN: ${tableArn}`);
+      }
+
       const props: DynamoEventSourceProps = {
         batchSize: options?.batchSize || 10,
         maxBatchingWindow: cdk.Duration.seconds(
@@ -731,8 +739,8 @@ export class LambdaBuilder {
         reportBatchItemFailures: options?.reportBatchItemFailures,
         filters: options?.filters ? options.filters.map((filter: FilterCriteria) => FilterCriteria.filter(filter)) : undefined,
       }
-      const eventSource = new DynamoEventSource(table, props);
 
+      const eventSource = new lambdaEventSources.DynamoEventSource(table, props);
       this.lambda.addEventSource(eventSource);
     });
   }

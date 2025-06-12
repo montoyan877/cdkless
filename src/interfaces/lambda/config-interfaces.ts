@@ -108,6 +108,8 @@ export interface SMKConfig {
 export interface DynamoStreamsConfig {
   /** ARN of the DynamoDB table */
   tableArn: string;
+  /** Name of the DynamoDB table */
+  tableName: string;
   /** Additional options for the DynamoDB Streams event source */
   options?: DynamoStreamsOptions;
 }
