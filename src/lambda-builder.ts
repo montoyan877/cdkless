@@ -38,6 +38,7 @@ import {
   MSKConfig,
   SMKConfig,
   DynamoStreamsConfig,
+  DynamoStreamsOptions
 } from "./interfaces/lambda";
 import { FilterCriteria, StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
@@ -438,13 +439,13 @@ export class LambdaBuilder {
   }
 
   /**
-   * Agrega un trigger de DynamoDB Streams a la función Lambda
-   * @param tableArn ARN de la tabla de DynamoDB que tiene habilitados los streams
-   * @param config Configuración opcional para el trigger de DynamoDB Streams
-   * @returns La instancia de LambdaBuilder para encadenar métodos
+   * Adds a DynamoDB Streams trigger to the Lambda function
+   * @param tableArn ARN of the DynamoDB table that has streams enabled
+   * @param config Optional configuration for the DynamoDB Streams trigger
+   * @returns The LambdaBuilder instance for method chaining
    */
-  public addDynamoStreamsTrigger(config: DynamoStreamsConfig): LambdaBuilder {
-    this.dynamoStreamsConfigs.push(config);
+  public addDynamoStreamsTrigger(tableArn: string, options?: DynamoStreamsOptions): LambdaBuilder {
+    this.dynamoStreamsConfigs.push({tableArn, options});
     return this;
   }
 
@@ -697,28 +698,43 @@ export class LambdaBuilder {
     }
   }
 
+  /**
+   * Applies all stored DynamoDB Streams trigger configurations to the Lambda function.
+   * This method processes each DynamoDB Streams configuration and creates the corresponding
+   * event source with the specified properties like batch size, batching window, and filters.
+   * 
+   * For each configuration:
+   * - Creates a DynamoDB table reference from the provided ARN
+   * - Configures the event source with batch processing settings
+   * - Applies any specified filters for event filtering
+   * - Adds the event source to the Lambda function
+   * 
+   * @private
+   * @returns void
+   */
   private applyDynamoStreamsTriggers(): void {
-    for (const config of this.dynamoStreamsConfigs) {
+    this.dynamoStreamsConfigs.forEach((config, index) => {
+      const { tableArn, options } = config;
       const table: dynamodb.ITable = Table.fromTableArn(
         this.scope,
-        config.tableName,
-        config.tableArn
+        `${this.resourceName}-imported-table-${this.stage}-${index}`,
+        tableArn
       );
       const props: DynamoEventSourceProps = {
-        batchSize: config.batchSize || 10,
-        maxBatchingWindow: config.maxBatchingWindow 
-          ? cdk.Duration.seconds(config.maxBatchingWindow)
-          : cdk.Duration.seconds(1),
-        startingPosition: config.startingPosition || StartingPosition.TRIM_HORIZON,
-        enabled: config.enabled ?? true,
-        retryAttempts: config.retryAttempts,
-        reportBatchItemFailures: config.reportBatchItemFailures,
-        filters: config.filters ? config.filters.map(filter => FilterCriteria.filter(filter)) : undefined,
+        batchSize: options?.batchSize || 10,
+        maxBatchingWindow: cdk.Duration.seconds(
+          options?.maxBatchingWindow || 1
+        ),
+        startingPosition: options?.startingPosition || StartingPosition.LATEST,
+        enabled: options?.enabled ?? true,
+        retryAttempts: options?.retryAttempts,
+        reportBatchItemFailures: options?.reportBatchItemFailures,
+        filters: options?.filters ? options.filters.map((filter: FilterCriteria) => FilterCriteria.filter(filter)) : undefined,
       }
       const eventSource = new DynamoEventSource(table, props);
 
       this.lambda.addEventSource(eventSource);
-    }
+    });
   }
 
   public build(): lambda.Function {

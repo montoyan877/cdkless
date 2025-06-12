@@ -1,12 +1,13 @@
-import { FilterCriteria, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import {
   SnsOptions,
   SqsOptions,
   S3Options,
-  EventBridgeRuleOptions
+  EventBridgeRuleOptions,
+  DynamoStreamsOptions
 } from './lambda-options';
 import { PolicyOptions } from './lambda-props';
 import { AuthenticationMethod } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { StartingPosition } from 'aws-cdk-lib/aws-lambda';
 
 /**
  * Configuration for SNS triggers
@@ -105,22 +106,8 @@ export interface SMKConfig {
  * Configuration for DynamoDB Streams triggers
  */
 export interface DynamoStreamsConfig {
-  /** Name of the DynamoDB table */
-  tableName: string;
   /** ARN of the DynamoDB table */
   tableArn: string;
-  /** Batch size for messages */
-  batchSize?: number;
-  /** Maximum waiting time to accumulate messages in a batch */
-  maxBatchingWindow?: number;
-  /** Starting position for the stream consumer */
-  startingPosition?: StartingPosition;
-  /** Whether the integration is enabled */
-  enabled?: boolean;
-  /** Retry attempts for failed records */
-  retryAttempts?: number;
-  /** Whether to report batch item failures */
-  reportBatchItemFailures?: boolean;
-  /** Filters for the DynamoDB stream */
-  filters?: FilterCriteria[];
+  /** Additional options for the DynamoDB Streams event source */
+  options?: DynamoStreamsOptions;
 }

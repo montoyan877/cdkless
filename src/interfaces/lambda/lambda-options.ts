@@ -3,7 +3,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as events from 'aws-cdk-lib/aws-events';
-
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 /**
  * Options for SNS integration
  */
@@ -60,3 +60,19 @@ export interface EventBridgeRuleOptions {
   ruleName?: string;
 }
 
+export interface DynamoStreamsOptions {
+  /** Batch size for messages */
+  batchSize?: number;
+  /** Maximum waiting time to accumulate messages in a batch */
+  maxBatchingWindow?: number;
+  /** Starting position for the stream consumer */
+  startingPosition?: lambda.StartingPosition;
+  /** Whether the integration is enabled */
+  enabled?: boolean;
+  /** Retry attempts for failed records */
+  retryAttempts?: number;
+  /** Whether to report batch item failures */
+  reportBatchItemFailures?: boolean;
+  /** Filters for the DynamoDB stream */
+  filters?: lambda.FilterCriteria[];
+}
