@@ -192,12 +192,7 @@ export class LambdaBuilder {
         ? `${this.resourceName}-${this.stage}`
         : this.resourceName;
 
-    // Default bundling options
-    const defaultBundling = {
-      minify: true,
-      sourceMap: false,
-      externalModules: ["aws-sdk", "@aws-sdk/*"],
-    };
+    const defaultBundling = CdkLess.getDefaultBundlingOptions();
 
     // Merge default bundling with custom bundling options
     const bundlingConfig = this.bundlingOptions

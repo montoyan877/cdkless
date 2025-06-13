@@ -9,8 +9,15 @@ import {
   LayerVersionProps,
 } from "aws-cdk-lib/aws-lambda";
 import path from "path";
+import { BundlingOptions } from "aws-cdk-lib/aws-lambda-nodejs";
 
 let sharedLayer: ILayerVersion;
+let defaultBundlingOptions: BundlingOptions = {
+  minify: false,
+  sourceMap: false,
+  externalModules: ["aws-sdk", "@aws-sdk/*", "/opt/*"],
+};
+
 /**
  * Base class that provides simplified methods
  * to interact with the CDK-less framework
@@ -44,19 +51,41 @@ export class CdkLess extends cdk.Stack implements IStack {
     });
   }
 
+  /**
+   * Set the default bundling options for all Lambda functions
+   * @param options Bundling options
+   */
+  public setDefaultBundlingOptions(options: BundlingOptions): void {
+    defaultBundlingOptions = { ...defaultBundlingOptions, ...options };
+  }
+
+  /**
+   * Get the default bundling options for all Lambda functions
+   * @returns Default bundling options
+   */
+  static getDefaultBundlingOptions(): BundlingOptions | undefined {
+    return defaultBundlingOptions;
+  }
+
+  /**
+   * Set the shared layer for all Lambda functions
+   * @param layerPath Path to the layer
+   * @param options Layer options
+   * @returns The shared layer
+   */
   public setSharedLayer(
     layerPath: string,
-    options?: LayerVersionProps
+    options?: Omit<LayerVersionProps, "code">
   ): ILayerVersion {
     if (sharedLayer) return sharedLayer;
 
     const appName = this.stackName.replace(`-${this.stage}`, "");
     const layerName =
-      this.stage.length > 0
+      options?.layerVersionName || this.stage.length > 0
         ? `${appName}-layer-${this.stage}`
         : `${appName}-layer`;
 
-    const code = Code.fromAsset(path.join(__dirname, layerPath));
+    const code = Code.fromAsset(path.join(layerPath));
     if (!code) {
       throw "Shared layer not found";
     }
@@ -73,6 +102,10 @@ export class CdkLess extends cdk.Stack implements IStack {
     return layer;
   }
 
+  /**
+   * Get the shared layer
+   * @returns The shared layer
+   */
   static getSharedLayer(): ILayerVersion | undefined {
     return sharedLayer;
   }
