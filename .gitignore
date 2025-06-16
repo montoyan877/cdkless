@@ -41,3 +41,5 @@ yarn-error.log*
 cdk.out/
 .cdk.staging/
 *.js.map 
+
+*.tgz
