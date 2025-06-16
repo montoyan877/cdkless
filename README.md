@@ -204,7 +204,7 @@ app
 
 ### 🔄 Event Triggers and Integration
 
-Create event-driven microservices with SQS, SNS, and S3:
+Create event-driven microservices with SQS, SNS, Dynamo Streams and S3:
 
 ```typescript
 // SQS Queue consumer
@@ -226,7 +226,7 @@ app
 app
   .lambda("src/handlers/orders/process-order-changes")
   .addDynamoStreamsTrigger(
-    "arn:aws:dynamodb:region:account:table/orders-table",
+    "arn:aws:dynamodb:region:account:table/orders-table/stream/lastest",
     {
       batchSize: 10,
       maxBatchingWindow: 5,
@@ -313,13 +313,11 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
 
 ##### DynamoDB Streams Trigger Configuration
 
-The DynamoDB Streams trigger allows processing real-time changes from a DynamoDB table. The configuration includes:
+The DynamoDB Streams trigger allows processing real-time changes from a DynamoDB table. The configuration includes the following options:
 
 ```typescript
-interface DynamoStreamsConfig {
-  /** ARN of the DynamoDB table with streams enabled */
-  tableArn: string;
-  /** Batch size for messages (default: 10) */
+interface DynamoStreamsOptions {
+  /** Batch size for processing messages (default: 10) */
   batchSize?: number;
   /** Maximum waiting time to accumulate messages in a batch (in seconds) */
   maxBatchingWindow?: number;
@@ -331,6 +329,8 @@ interface DynamoStreamsConfig {
   retryAttempts?: number;
   /** Whether to report individual batch item failures */
   reportBatchItemFailures?: boolean;
+  /** Filters for stream events */
+  filters?: lambda.FilterCriteria[];
 }
 ```
 
@@ -340,7 +340,7 @@ Example usage with all options:
 app
   .lambda("src/handlers/orders/process-order-changes")
   .addDynamoStreamsTrigger(
-    "arn:aws:dynamodb:region:account:table/orders-table",
+    "arn:aws:dynamodb:region:account:table/orders-table/stream/lastest",
     {
       batchSize: 10, // Process 10 records per batch
       maxBatchingWindow: 5, // Wait up to 5 seconds to accumulate records
@@ -348,6 +348,20 @@ app
       enabled: true, // Enable the trigger
       retryAttempts: 3, // Retry 3 times in case of failure
       reportBatchItemFailures: true, // Report individual batch item failures
+      filters: [
+        {
+          pattern: {
+            eventName: ["INSERT", "MODIFY"],
+            dynamodb: {
+              NewImage: {
+                status: {
+                  S: ["PENDING", "PROCESSING"]
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   );
 ```

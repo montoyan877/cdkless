@@ -476,8 +476,8 @@ export class LambdaBuilder {
 
   /**
    * Adds a DynamoDB Streams trigger to the Lambda function
-   * @param tableArn ARN of the DynamoDB table that has streams enabled
-   * @param config Optional configuration for the DynamoDB Streams trigger
+   * @param streamArn ARN of the DynamoDB Stream
+   * @param DynamoStreamsOptions Optional configuration for the DynamoDB Streams trigger
    * @returns The LambdaBuilder instance for method chaining
    */
   public addDynamoStreamsTrigger(streamArn: string, options?: DynamoStreamsOptions): LambdaBuilder {
