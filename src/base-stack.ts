@@ -1,7 +1,26 @@
 import * as cdk from "aws-cdk-lib";
 import { LambdaBuilder } from "./lambda-builder";
-import { AwsResourceTags, TagsConfig } from "./interfaces/tags";
-import { IStack } from "./interfaces/stack";
+import { AwsResourceTags } from "./interfaces/tags";
+import { IStack, IStackSettings } from "./interfaces/stack";
+import {
+  Code,
+  ILayerVersion,
+  LayerVersion,
+  LayerVersionProps,
+} from "aws-cdk-lib/aws-lambda";
+import path from "path";
+import { CdkLessOptions } from "./interfaces/cdkless";
+
+let sharedLayer: ILayerVersion;
+
+let defaultSettings: IStackSettings = {
+  bundleLambdasFromTypeScript: true,
+  defaultBundlingOptions: {
+    minify: false,
+    sourceMap: false,
+    externalModules: ["aws-sdk", "@aws-sdk/*", "/opt/*"],
+  },
+};
 
 /**
  * Base class that provides simplified methods
@@ -16,28 +35,89 @@ export class CdkLess extends cdk.Stack implements IStack {
   /**
    * Simplified constructor that only requires the application name
    * @param appName Name of the application
-   * @param stage Deployment environment (default: 'dev')
+   * @param settings Default settings for CdkLess
    * @param props Additional Stack properties (optional)
+   * @param stage Deployment environment (default: 'dev')
    */
-  constructor(
-    appName: string, 
-    stage?: string, 
-    props?: cdk.StackProps
-  ) {
+  constructor({
+    appName,
+    settings = defaultSettings,
+    stackProps,
+    stage = process.env.STAGE || "",
+  }: CdkLessOptions) {
     const app = new cdk.App();
-    const actualStage = stage || process.env.STAGE || "";
+    CdkLess.setDefaultSettings(settings);
 
     const stackId =
-      actualStage.length > 0 ? `${appName}-${actualStage}` : appName;
+      stage.length > 0 ? `${appName}-${stage}` : appName;
 
-    super(app, stackId, props);
+    super(app, stackId, stackProps);
 
     this.app = app;
-    this.stage = actualStage;
+    this.stage = stage;
 
     process.on("beforeExit", () => {
       this.synth();
     });
+  }
+
+  /**
+   * Set the default settings for the stack
+   * @param settings Settings to set
+   */
+  static setDefaultSettings(settings: IStackSettings): void {
+    defaultSettings = { ...defaultSettings, ...settings };
+  }
+
+  /**
+   * Get the default settings for the stack
+   * @returns The default settings
+   */
+  static getDefaultSettings(): IStackSettings {
+    return defaultSettings;
+  }
+
+  /**
+   * Set the shared layer for all Lambda functions
+   * @param layerPath Path to the layer
+   * @param options Layer options
+   * @returns The shared layer
+   */
+  public setSharedLayer(
+    layerPath: string,
+    options?: Omit<LayerVersionProps, "code">
+  ): ILayerVersion {
+    if (sharedLayer) return sharedLayer;
+
+    const appName = this.stackName.replace(`-${this.stage}`, "");
+    const layerName =
+      options?.layerVersionName || this.stage.length > 0
+        ? `${appName}-layer-${this.stage}`
+        : `${appName}-layer`;
+
+    const code = Code.fromAsset(path.join(layerPath));
+    if (!code) {
+      throw "Shared layer not found";
+    }
+
+    const layer = new LayerVersion(this, layerName, {
+      code,
+      ...options,
+    });
+
+    console.log(`✅ Shared layer created: ${layerName}`);
+
+    sharedLayer = layer;
+
+    return layer;
+  }
+
+  /**
+   * Get the shared layer
+   * @returns The shared layer
+   */
+  static getSharedLayer(): ILayerVersion | undefined {
+    return sharedLayer;
   }
 
   /**

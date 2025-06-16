@@ -53,7 +53,7 @@ CdkLess was created for development teams that need to:
 // src/app.ts
 import { CdkLess } from "cdkless";
 
-const app = new CdkLess("user-services");
+const app = new CdkLess({ appName: "user-services" });
 
 app.lambda("src/handlers/users/get-users").get("/users");
 app.lambda("src/handlers/users/create-user").post("/users");
@@ -100,6 +100,32 @@ app
 ```
 
 ## 🔍 Key Features
+
+### 🔧 TypeScript Support
+
+Cdkless provides first-class TypeScript support with automatic bundling:
+
+```typescript
+const app = new CdkLess({
+  appName: "my-service",
+  settings: {
+    // Use TypeScript handlers directly (default)
+    bundleLambdasFromTypeScript: true,
+    
+    // Configure bundling options
+    defaultBundlingOptions: {
+      minify: true,
+      sourceMap: true,
+      externalModules: ['aws-sdk', '@aws-sdk/*'],
+    }
+  }
+});
+
+// Use TypeScript handlers directly
+app.lambda("src/handlers/users/get-users.ts").get("/users");
+```
+
+You can also opt out of automatic bundling and handle TypeScript compilation yourself by setting `bundleLambdasFromTypeScript: false`.
 
 ### 🌐 API Gateway Integration
 
@@ -199,22 +225,23 @@ app
 // DynamoDB Streams trigger
 app
   .lambda("src/handlers/orders/process-order-changes")
-  .addDynamoStreamsTrigger("arn:aws:dynamodb:region:account:table/orders-table", {
-    batchSize: 10,
-    maxBatchingWindow: 5,
-    startingPosition: StartingPosition.TRIM_HORIZON,
-    enabled: true,
-    retryAttempts: 3,
-    reportBatchItemFailures: true
-  });
+  .addDynamoStreamsTrigger(
+    "arn:aws:dynamodb:region:account:table/orders-table",
+    {
+      batchSize: 10,
+      maxBatchingWindow: 5,
+      startingPosition: StartingPosition.TRIM_HORIZON,
+      enabled: true,
+      retryAttempts: 3,
+      reportBatchItemFailures: true,
+    }
+  );
 
 // EventBridge rule trigger
-app
-  .lambda("src/handlers/scheduled/daily-report")
-  .addEventBridgeRuleTrigger({
-    scheduleExpression: "cron(0 12 * * ? *)",  // Run daily at 12:00 PM UTC
-    description: "Trigger daily report generation"
-  });
+app.lambda("src/handlers/scheduled/daily-report").addEventBridgeRuleTrigger({
+  scheduleExpression: "cron(0 12 * * ? *)", // Run daily at 12:00 PM UTC
+  description: "Trigger daily report generation",
+});
 
 // EventBridge event pattern trigger
 app
@@ -222,9 +249,9 @@ app
   .addEventBridgeRuleTrigger({
     eventPattern: {
       source: ["aws.ec2"],
-      detailType: ["EC2 Instance State-change Notification"]
+      detailType: ["EC2 Instance State-change Notification"],
     },
-    description: "Process EC2 state changes"
+    description: "Process EC2 state changes",
   });
 ```
 
@@ -234,32 +261,29 @@ Connect your Lambda functions to Kafka topics using either Amazon MSK or Self-Ma
 
 ```typescript
 // Amazon MSK consumer
-app
-  .lambda("src/handlers/orders/process-msk-order")
-  .addMSKTrigger({
-    clusterArn: "arn:aws:kafka:region:account:cluster/your-cluster",
-    topic: "orders-topic",
-    secretArn: "arn:aws:secretsmanager:region:account:secret/your-secret-name",
-    batchSize: 100,
-    maximumBatchingWindow: 5,
-    consumerGroupId: "orders-consumer-group"
-  });
+app.lambda("src/handlers/orders/process-msk-order").addMSKTrigger({
+  clusterArn: "arn:aws:kafka:region:account:cluster/your-cluster",
+  topic: "orders-topic",
+  secretArn: "arn:aws:secretsmanager:region:account:secret/your-secret-name",
+  batchSize: 100,
+  maximumBatchingWindow: 5,
+  consumerGroupId: "orders-consumer-group",
+});
 
 // Self-Managed Kafka consumer (e.g., Confluent Cloud)
-app
-  .lambda("src/handlers/orders/process-kafka-order")
-  .addSMKTrigger({
-    bootstrapServers: ["pkc-p11xm.us-east-1.aws.confluent.cloud:9099"],
-    topic: "orders-topic",
-    secretArn: "arn:aws:secretsmanager:region:account:secret/your-secret-name",
-    authenticationMethod: AuthenticationMethod.SASL_SCRAM_512_AUTH,
-    batchSize: 100,
-    maximumBatchingWindow: 5,
-    consumerGroupId: "orders-consumer-group"
-  });
+app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
+  bootstrapServers: ["pkc-p11xm.us-east-1.aws.confluent.cloud:9099"],
+  topic: "orders-topic",
+  secretArn: "arn:aws:secretsmanager:region:account:secret/your-secret-name",
+  authenticationMethod: AuthenticationMethod.SASL_SCRAM_512_AUTH,
+  batchSize: 100,
+  maximumBatchingWindow: 5,
+  consumerGroupId: "orders-consumer-group",
+});
 ```
 
 ##### Amazon MSK Trigger Configuration
+
 - `clusterArn`: ARN of your Amazon MSK cluster
 - `topic`: Kafka topic to consume from
 - `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials
@@ -270,6 +294,7 @@ app
 - `consumerGroupId`: Custom consumer group ID (default: auto-generated)
 
 ##### Self-Managed Kafka Trigger Configuration
+
 - `bootstrapServers`: Array of Kafka broker URLs
 - `topic`: Kafka topic to consume from
 - `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials
@@ -314,14 +339,17 @@ Example usage with all options:
 ```typescript
 app
   .lambda("src/handlers/orders/process-order-changes")
-  .addDynamoStreamsTrigger("arn:aws:dynamodb:region:account:table/orders-table", {
-    batchSize: 10,                    // Process 10 records per batch
-    maxBatchingWindow: 5,             // Wait up to 5 seconds to accumulate records
-    startingPosition: StartingPosition.TRIM_HORIZON,  // Start from the beginning of the stream
-    enabled: true,                    // Enable the trigger
-    retryAttempts: 3,                 // Retry 3 times in case of failure
-    reportBatchItemFailures: true     // Report individual batch item failures
-  });
+  .addDynamoStreamsTrigger(
+    "arn:aws:dynamodb:region:account:table/orders-table",
+    {
+      batchSize: 10, // Process 10 records per batch
+      maxBatchingWindow: 5, // Wait up to 5 seconds to accumulate records
+      startingPosition: StartingPosition.TRIM_HORIZON, // Start from the beginning of the stream
+      enabled: true, // Enable the trigger
+      retryAttempts: 3, // Retry 3 times in case of failure
+      reportBatchItemFailures: true, // Report individual batch item failures
+    }
+  );
 ```
 
 ### ⚙️ Environment Configuration
@@ -344,24 +372,137 @@ Configure your Lambda functions to run within a VPC:
 
 ```typescript
 // Basic VPC configuration
-app.lambda("src/handlers/users/get-user")
-  .addVpcConfig({
-    vpcId: "vpc-1234567890abcdef0"
-  });
+app.lambda("src/handlers/users/get-user").addVpcConfig({
+  vpcId: "vpc-1234567890abcdef0",
+});
 
 // Full VPC configuration with subnets and security groups
-app.lambda("src/handlers/users/get-user")
-  .addVpcConfig({
-    vpcId: "vpc-1234567890abcdef0",
-    subnetIds: ["subnet-1234567890abcdef0", "subnet-0987654321fedcba0"],
-    securityGroupIds: ["sg-1234567890abcdef0"]
-  });
+app.lambda("src/handlers/users/get-user").addVpcConfig({
+  vpcId: "vpc-1234567890abcdef0",
+  subnetIds: ["subnet-1234567890abcdef0", "subnet-0987654321fedcba0"],
+  securityGroupIds: ["sg-1234567890abcdef0"],
+});
 ```
 
 The VPC configuration supports:
+
 - `vpcId`: The ID of the VPC to place the Lambda function in
 - `subnetIds`: Optional array of subnet IDs where the Lambda function will be placed
 - `securityGroupIds`: Optional array of security group IDs to associate with the Lambda function
+
+### 📦 Lambda Layers Configuration
+
+CdkLess provides powerful options for managing Lambda layers, including shared layers for all functions and individual layers for specific functions.
+
+#### Shared Layer for All Lambda Functions
+
+Configure a shared layer that will be automatically attached to all Lambda functions in your stack. This is perfect for common dependencies, utilities, or shared libraries.
+
+> **Note:** When using TypeScript for layers, you need to compile your code first and structure the output following AWS Lambda layer standards (i.e., place your compiled files in a `/nodejs` folder). For example:
+> ```
+> /dist/layers/common-utilities/
+> └── nodejs/
+>     ├── node_modules/
+>     └── your-compiled-code.js
+> ```
+
+```typescript
+import * as lambda from "aws-cdk-lib/aws-lambda";
+
+// Create the stack
+const app = new CdkLess({ appName: "user-services" });
+
+// Set up a shared layer that all Lambda functions will automatically use
+app.setSharedLayer("../dist/layers/common-utilities", {
+  description: "Common utilities and dependencies for all Lambda functions",
+  compatibleRuntimes: [
+    lambda.Runtime.NODEJS_18_X,
+    lambda.Runtime.NODEJS_20_X,
+    lambda.Runtime.NODEJS_22_X,
+  ],
+  layerVersionName: "common-utilities-layer",
+});
+
+// All Lambda functions will automatically include the shared layer
+app.lambda("src/handlers/users/get-user").get("/users/:id");
+app.lambda("src/handlers/orders/create-order").post("/orders");
+app.lambda("src/handlers/products/list-products").get("/products");
+```
+
+The `setSharedLayer` method accepts:
+
+- `layerPath`: Relative path to the layer directory (from your current directory)
+- `options`: Optional `LayerVersionProps` from AWS CDK for advanced configuration
+
+**Key Benefits:**
+
+- **Automatic**: Once configured, all Lambda functions automatically receive the shared layer
+- **Efficient**: Single layer creation per stack, reducing deployment time and resources
+- **Consistent**: Ensures all functions have access to the same version of shared dependencies
+
+#### Individual Lambda Layers
+
+Add specific layers to individual Lambda functions when you need specialized dependencies or libraries:
+
+```typescript
+import * as lambda from "aws-cdk-lib/aws-lambda";
+
+// Get an existing layer for different purposes
+const databaseLayer = LayerVersion.fromLayerVersionArn(
+  app,
+  "DatabaseHandlerLayer",
+  "arn:aws:lambda:us-east-1:3123213123:layer:mysql-layer"
+);
+
+// Create a new layer for different purposes
+const imageProcessingLayer = new lambda.LayerVersion(
+  app,
+  "image-processing-layer",
+  {
+    code: lambda.Code.fromAsset("../layers/image-processing"),
+    description: "Image processing and manipulation tools",
+    compatibleRuntimes: [lambda.Runtime.NODEJS_22_X],
+  }
+);
+
+// Add specific layers to Lambda functions that need them
+app
+  .lambda("src/handlers/users/create-user")
+  .post("/users")
+  .addLayers([databaseLayer]); // Only needs database utilities
+
+app
+  .lambda("src/handlers/images/resize-image")
+  .post("/images/resize")
+  .addLayers([imageProcessingLayer]); // Only needs image processing
+
+app
+  .lambda("src/handlers/users/create-user-with-avatar")
+  .post("/users/with-avatar")
+  .addLayers([databaseLayer, imageProcessingLayer]); // Needs both layers
+```
+
+#### Layer Structure Best Practices
+
+Organize your layers following AWS Lambda layer structure:
+
+```
+layers/
+├── common-utilities/
+│   └── nodejs/
+│       ├── node_modules/     # npm dependencies
+│       └── package.json
+├── database-utilities/
+│   └── nodejs/
+│       ├── lib/
+│       │   ├── db-connection.js
+│       │   └── orm-helpers.js
+│       └── package.json
+└── image-processing/
+    └── nodejs/
+        ├── node_modules/     # Sharp, Jimp, etc.
+        └── package.json
+```
 
 ### 🏷️ Resource Tagging
 
@@ -369,7 +510,7 @@ CdkLess provides a simple way to manage tags for both your stack and individual 
 
 ```typescript
 // Create a stack
-const app = new CdkLess("user-services");
+const app = new CdkLess({ appName: "user-services" });
 
 // Add tags to the stack
 app.addStackTags({
@@ -378,7 +519,7 @@ app.addStackTags({
   Critical: "false",
   Environment: "dev",
   CostCenter: "12345",
-  StackType: "production"
+  StackType: "production",
 });
 
 // Add tags to all resources
@@ -387,16 +528,14 @@ app.addResourceTags({
   Environment: "dev",
   Department: "IT",
   ManagedBy: "cdkless",
-  Version: "1.0.0"
+  Version: "1.0.0",
 });
 
 // Add specific tags to a Lambda function
-app.lambda("src/handlers/users/create-user")
-  .post("/users")
-  .addTags({
-    Service: "user-service",
-    Component: "user-management"
-  });
+app.lambda("src/handlers/users/create-user").post("/users").addTags({
+  Service: "user-service",
+  Component: "user-management",
+});
 ```
 
 #### Tag Inheritance
@@ -512,6 +651,7 @@ lambda-run run src/handlers/users/get-users.js handler --event '{"pathParameters
 ```
 
 Key features of lambda-running:
+
 - 🎨 Modern web interface for testing Lambda functions
 - 🔍 Real-time logs and execution results
 - 💾 Save and reuse test events
