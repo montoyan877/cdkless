@@ -10,7 +10,7 @@ describe("CdkLess Integration Tests", () => {
   });
 
   test("Simple Lambda stack is created correctly", () => {
-    const cdkless = new CdkLess("test-app");
+    const cdkless = new CdkLess({ appName: "test-app" });
 
     cdkless.lambda("tests/handlers/test-handler").name("test-lambda").build();
 
@@ -25,7 +25,7 @@ describe("CdkLess Integration Tests", () => {
   });
 
   test("API Gateway with Lambda integration is created correctly", () => {
-    const cdkless = new CdkLess("test-api-app");
+    const cdkless = new CdkLess({ appName: "test-api-app" });
 
     const authorizer = new HttpJwtAuthorizer(
       "CognitoAuthorizer",
@@ -63,7 +63,7 @@ describe("CdkLess Integration Tests", () => {
   });
 
   test("Lambda with custom configuration is created correctly", () => {
-    const cdkless = new CdkLess("custom-lambda-app");
+    const cdkless = new CdkLess({ appName: "custom-lambda-app" });
 
     cdkless
       .lambda("tests/handlers/test-handler")
@@ -93,7 +93,7 @@ describe("CdkLess Integration Tests", () => {
   test("Lambda with SNS trigger is created correctly", () => {
     const topicArn = "arn:aws:sns:us-east-1:123456789012:test-topic";
 
-    const cdkless = new CdkLess("sns-lambda-app");
+    const cdkless = new CdkLess({ appName: "sns-lambda-app" });
     cdkless
       .lambda("tests/handlers/test-handler")
       .name("sns-lambda")
@@ -110,7 +110,7 @@ describe("CdkLess Integration Tests", () => {
 
   test("Lambda with SQS trigger is created correctly", () => {
     const queueArn = "arn:aws:sqs:us-east-1:123456789012:test-queue";
-    const cdkless = new CdkLess("sqs-lambda-app");
+    const cdkless = new CdkLess({ appName: "sqs-lambda-app" });
 
     cdkless
       .lambda("tests/handlers/test-handler")
@@ -127,7 +127,7 @@ describe("CdkLess Integration Tests", () => {
   });
 
   test("Lambda with S3 trigger is created correctly", () => {
-    const cdkless = new CdkLess("s3-lambda-app");
+    const cdkless = new CdkLess({ appName: "s3-lambda-app" });
 
     cdkless
       .lambda("tests/handlers/test-handler")
@@ -144,7 +144,7 @@ describe("CdkLess Integration Tests", () => {
   });
 
   test("Lambda with EventBridge schedule rule is created correctly", () => {
-    const cdkless = new CdkLess("eventbridge-schedule-app");
+    const cdkless = new CdkLess({ appName: "eventbridge-schedule-app" });
 
     cdkless
       .lambda("tests/handlers/test-handler")
@@ -173,7 +173,7 @@ describe("CdkLess Integration Tests", () => {
   });
 
   test("Lambda with EventBridge event pattern rule is created correctly", () => {
-    const cdkless = new CdkLess("eventbridge-pattern-app");
+    const cdkless = new CdkLess({ appName: "eventbridge-pattern-app" });
 
     cdkless
       .lambda("tests/handlers/test-handler")
