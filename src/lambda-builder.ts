@@ -12,8 +12,6 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import {
   AuthenticationMethod,
-  DynamoEventSource,
-  DynamoEventSourceProps,
   ManagedKafkaEventSource,
   SelfManagedKafkaEventSource,
 } from "aws-cdk-lib/aws-lambda-event-sources";
@@ -40,7 +38,7 @@ import {
   DynamoStreamsConfig,
   DynamoStreamsOptions
 } from "./interfaces/lambda";
-import { FilterCriteria, StartingPosition } from "aws-cdk-lib/aws-lambda";
+import { EventSourceMappingOptions, FilterCriteria, StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
 import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
@@ -444,8 +442,8 @@ export class LambdaBuilder {
    * @param config Optional configuration for the DynamoDB Streams trigger
    * @returns The LambdaBuilder instance for method chaining
    */
-  public addDynamoStreamsTrigger(tableArn: string, tableName: string, options?: DynamoStreamsOptions): LambdaBuilder {
-    this.dynamoStreamsConfigs.push({tableArn, tableName, options});
+  public addDynamoStreamsTrigger(streamArn: string, options?: DynamoStreamsOptions): LambdaBuilder {
+    this.dynamoStreamsConfigs.push({streamArn, options});
     return this;
   }
 
@@ -714,26 +712,16 @@ export class LambdaBuilder {
    */
   private applyDynamoStreamsTriggers(): void {
     this.dynamoStreamsConfigs.forEach((config) => {
-      const { tableArn, tableName, options } = config;
-      const table = dynamodb.Table.fromTableArn(
-        this.scope,
-        `${tableName}-reference`,
-        tableArn
-      );
-      const props: DynamoEventSourceProps = {
+      const { streamArn, options } = config;
+      const sourceMappingOptions: EventSourceMappingOptions = {
+        eventSourceArn: streamArn,
+        enabled: options?.enabled ?? true,
         batchSize: options?.batchSize || 10,
         maxBatchingWindow: cdk.Duration.seconds(
           options?.maxBatchingWindow || 1
         ),
-        startingPosition: options?.startingPosition || StartingPosition.LATEST,
-        enabled: options?.enabled ?? true,
-        retryAttempts: options?.retryAttempts,
-        reportBatchItemFailures: options?.reportBatchItemFailures,
-        filters: options?.filters ? options.filters.map((filter: FilterCriteria) => FilterCriteria.filter(filter)) : undefined,
-      }
-
-      const eventSource = new lambdaEventSources.DynamoEventSource(table, props);
-      this.lambda.addEventSource(eventSource);
+      };
+      this.lambda.addEventSourceMapping(streamArn, sourceMappingOptions);
     });
   }
 
