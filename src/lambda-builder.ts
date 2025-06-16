@@ -192,13 +192,6 @@ export class LambdaBuilder {
         ? `${this.resourceName}-${this.stage}`
         : this.resourceName;
 
-    const defaultBundling = CdkLess.getDefaultBundlingOptions();
-
-    // Merge default bundling with custom bundling options
-    const bundlingConfig = this.bundlingOptions
-      ? { ...defaultBundling, ...this.bundlingOptions }
-      : defaultBundling;
-
     let vpc: ec2.IVpc | undefined;
     let subnets: ec2.ISubnet[] | undefined;
     let securityGroups: ec2.ISecurityGroup[] | undefined;
@@ -231,25 +224,58 @@ export class LambdaBuilder {
     const sharedLayer = CdkLess.getSharedLayer();
     if (sharedLayer) layers.push(sharedLayer);
 
-    const lambdaFunction = new NodejsFunction(
-      this.scope,
-      `${this.resourceName}-function`,
-      {
-        functionName: functionName,
-        runtime: this.runtimeValue,
-        memorySize: this.memorySize,
-        timeout: this.timeoutDuration,
-        entry: `${this.handlerPath}.ts`,
-        handler: "handler",
-        bundling: bundlingConfig,
-        environment: this.environmentVars,
-        logGroup,
-        vpc,
-        vpcSubnets: subnets ? { subnets } : undefined,
-        securityGroups,
-        layers,
-      }
-    );
+    let lambdaFunction: lambda.Function;
+    const defaultSettings = CdkLess.getDefaultSettings();
+
+    if (defaultSettings.bundleLambdasFromTypeScript) {
+      const bundling = this.bundlingOptions
+        ? { ...defaultSettings.defaultBundlingOptions, ...this.bundlingOptions }
+        : defaultSettings.defaultBundlingOptions;
+
+      lambdaFunction = new NodejsFunction(
+        this.scope,
+        `${this.resourceName}-function`,
+        {
+          functionName: functionName,
+          runtime: this.runtimeValue,
+          memorySize: this.memorySize,
+          timeout: this.timeoutDuration,
+          entry: `${this.handlerPath}.ts`,
+          handler: "handler",
+          bundling,
+          environment: this.environmentVars,
+          logGroup,
+          vpc,
+          vpcSubnets: subnets ? { subnets } : undefined,
+          securityGroups,
+          layers,
+        }
+      );
+    } else {
+      const handlerFile = this.handlerPath.split("/").pop() || "";
+      const handlerPath = this.handlerPath.split("/").slice(0, -1).join("/");
+
+      lambdaFunction = new lambda.Function(
+        this.scope,
+        `${this.resourceName}-function`,
+        {
+          functionName: functionName,
+          runtime: this.runtimeValue,
+          memorySize: this.memorySize,
+          timeout: this.timeoutDuration,
+          handler: `${handlerFile}.handler`,
+          code: lambda.Code.fromAsset(handlerPath, {
+            exclude: ['*', '**/*', `!${handlerFile}.js`, `!${handlerFile}.js.map`]
+          }),
+          environment: this.environmentVars,
+          logGroup,
+          vpc,
+          vpcSubnets: subnets ? { subnets } : undefined,
+          securityGroups,
+          layers,
+        }
+      );
+    }
 
     if (this.scope instanceof Stack && "getResourceTags" in this.scope) {
       const stackResourceTags = (this.scope as IStack).getResourceTags();

@@ -53,7 +53,7 @@ CdkLess was created for development teams that need to:
 // src/app.ts
 import { CdkLess } from "cdkless";
 
-const app = new CdkLess("user-services");
+const app = new CdkLess({ appName: "user-services" });
 
 app.lambda("src/handlers/users/get-users").get("/users");
 app.lambda("src/handlers/users/create-user").post("/users");
@@ -100,6 +100,32 @@ app
 ```
 
 ## 🔍 Key Features
+
+### 🔧 TypeScript Support
+
+Cdkless provides first-class TypeScript support with automatic bundling:
+
+```typescript
+const app = new CdkLess({
+  appName: "my-service",
+  settings: {
+    // Use TypeScript handlers directly (default)
+    bundleLambdasFromTypeScript: true,
+    
+    // Configure bundling options
+    defaultBundlingOptions: {
+      minify: true,
+      sourceMap: true,
+      externalModules: ['aws-sdk', '@aws-sdk/*'],
+    }
+  }
+});
+
+// Use TypeScript handlers directly
+app.lambda("src/handlers/users/get-users.ts").get("/users");
+```
+
+You can also opt out of automatic bundling and handle TypeScript compilation yourself by setting `bundleLambdasFromTypeScript: false`.
 
 ### 🌐 API Gateway Integration
 
@@ -372,14 +398,22 @@ CdkLess provides powerful options for managing Lambda layers, including shared l
 
 Configure a shared layer that will be automatically attached to all Lambda functions in your stack. This is perfect for common dependencies, utilities, or shared libraries.
 
+> **Note:** When using TypeScript for layers, you need to compile your code first and structure the output following AWS Lambda layer standards (i.e., place your compiled files in a `/nodejs` folder). For example:
+> ```
+> /dist/layers/common-utilities/
+> └── nodejs/
+>     ├── node_modules/
+>     └── your-compiled-code.js
+> ```
+
 ```typescript
 import * as lambda from "aws-cdk-lib/aws-lambda";
 
 // Create the stack
-const app = new CdkLess("user-services");
+const app = new CdkLess({ appName: "user-services" });
 
 // Set up a shared layer that all Lambda functions will automatically use
-app.setSharedLayer("../layers/common-utilities", {
+app.setSharedLayer("../dist/layers/common-utilities", {
   description: "Common utilities and dependencies for all Lambda functions",
   compatibleRuntimes: [
     lambda.Runtime.NODEJS_18_X,
@@ -476,7 +510,7 @@ CdkLess provides a simple way to manage tags for both your stack and individual 
 
 ```typescript
 // Create a stack
-const app = new CdkLess("user-services");
+const app = new CdkLess({ appName: "user-services" });
 
 // Add tags to the stack
 app.addStackTags({

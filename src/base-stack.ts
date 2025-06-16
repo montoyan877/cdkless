@@ -1,7 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import { LambdaBuilder } from "./lambda-builder";
 import { AwsResourceTags } from "./interfaces/tags";
-import { IStack } from "./interfaces/stack";
+import { IStack, IStackSettings } from "./interfaces/stack";
 import {
   Code,
   ILayerVersion,
@@ -9,13 +9,17 @@ import {
   LayerVersionProps,
 } from "aws-cdk-lib/aws-lambda";
 import path from "path";
-import { BundlingOptions } from "aws-cdk-lib/aws-lambda-nodejs";
+import { CdkLessOptions } from "./interfaces/cdkless";
 
 let sharedLayer: ILayerVersion;
-let defaultBundlingOptions: BundlingOptions = {
-  minify: false,
-  sourceMap: false,
-  externalModules: ["aws-sdk", "@aws-sdk/*", "/opt/*"],
+
+let defaultSettings: IStackSettings = {
+  bundleLambdasFromTypeScript: true,
+  defaultBundlingOptions: {
+    minify: false,
+    sourceMap: false,
+    externalModules: ["aws-sdk", "@aws-sdk/*", "/opt/*"],
+  },
 };
 
 /**
@@ -31,20 +35,26 @@ export class CdkLess extends cdk.Stack implements IStack {
   /**
    * Simplified constructor that only requires the application name
    * @param appName Name of the application
-   * @param stage Deployment environment (default: 'dev')
+   * @param settings Default settings for CdkLess
    * @param props Additional Stack properties (optional)
+   * @param stage Deployment environment (default: 'dev')
    */
-  constructor(appName: string, stage?: string, props?: cdk.StackProps) {
+  constructor({
+    appName,
+    settings = defaultSettings,
+    stackProps,
+    stage = process.env.STAGE || "",
+  }: CdkLessOptions) {
     const app = new cdk.App();
-    const actualStage = stage || process.env.STAGE || "";
+    CdkLess.setDefaultSettings(settings);
 
     const stackId =
-      actualStage.length > 0 ? `${appName}-${actualStage}` : appName;
+      stage.length > 0 ? `${appName}-${stage}` : appName;
 
-    super(app, stackId, props);
+    super(app, stackId, stackProps);
 
     this.app = app;
-    this.stage = actualStage;
+    this.stage = stage;
 
     process.on("beforeExit", () => {
       this.synth();
@@ -52,19 +62,19 @@ export class CdkLess extends cdk.Stack implements IStack {
   }
 
   /**
-   * Set the default bundling options for all Lambda functions
-   * @param options Bundling options
+   * Set the default settings for the stack
+   * @param settings Settings to set
    */
-  public setDefaultBundlingOptions(options: BundlingOptions): void {
-    defaultBundlingOptions = { ...defaultBundlingOptions, ...options };
+  static setDefaultSettings(settings: IStackSettings): void {
+    defaultSettings = { ...defaultSettings, ...settings };
   }
 
   /**
-   * Get the default bundling options for all Lambda functions
-   * @returns Default bundling options
+   * Get the default settings for the stack
+   * @returns The default settings
    */
-  static getDefaultBundlingOptions(): BundlingOptions | undefined {
-    return defaultBundlingOptions;
+  static getDefaultSettings(): IStackSettings {
+    return defaultSettings;
   }
 
   /**
