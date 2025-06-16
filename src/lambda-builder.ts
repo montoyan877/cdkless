@@ -46,6 +46,7 @@ import { IStack } from "./interfaces/stack";
 import { IVpcConfig } from "./interfaces/lambda/lambda-vpc";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import { Table } from "aws-cdk-lib/aws-dynamodb";
+import { CdkLess } from "./base-stack";
 
 let sharedApi: ApiBuilder;
 
@@ -65,6 +66,7 @@ export class LambdaBuilder {
   private authorizer?: apigatewayv2.IHttpRouteAuthorizer;
   private resourceTags: AwsResourceTags = {};
   private vpcConfig?: IVpcConfig;
+  private layers: lambda.ILayerVersion[] = [];
 
   // Store configurations for later application
   private snsConfigs: SnsConfig[] = [];
@@ -95,7 +97,7 @@ export class LambdaBuilder {
     // Extract the last segment of the handler path
     this.handlerPath = props.handler;
     this.resourceName = this.handlerPath.split("/").pop() || "";
-    
+
     // Store bundling options if provided
     this.bundlingOptions = props.bundling;
 
@@ -159,6 +161,16 @@ export class LambdaBuilder {
   }
 
   /**
+   * Adds layers to the Lambda function
+   * @param layers Layers to add to the Lambda function
+   * @returns The LambdaBuilder instance for method chaining
+   */
+  public addLayers(layers: lambda.ILayerVersion[]): LambdaBuilder {
+    this.layers = [...this.layers, ...layers];
+    return this;
+  }
+
+  /**
    * Creates a NodejsFunction with the current configuration values
    */
   private createNodejsFunction(): lambda.Function {
@@ -179,18 +191,6 @@ export class LambdaBuilder {
       this.stage.length > 0
         ? `${this.resourceName}-${this.stage}`
         : this.resourceName;
-
-    // Default bundling options
-    const defaultBundling = {
-      minify: true,
-      sourceMap: false,
-      externalModules: ["aws-sdk"],
-    };
-
-    // Merge default bundling with custom bundling options
-    const bundlingConfig = this.bundlingOptions 
-      ? { ...defaultBundling, ...this.bundlingOptions }
-      : defaultBundling;
 
     let vpc: ec2.IVpc | undefined;
     let subnets: ec2.ISubnet[] | undefined;
@@ -220,24 +220,62 @@ export class LambdaBuilder {
       }
     }
 
-    const lambdaFunction = new NodejsFunction(
-      this.scope,
-      `${this.resourceName}-function`,
-      {
-        functionName: functionName,
-        runtime: this.runtimeValue,
-        memorySize: this.memorySize,
-        timeout: this.timeoutDuration,
-        entry: `${this.handlerPath}.ts`,
-        handler: "handler",
-        bundling: bundlingConfig,
-        environment: this.environmentVars,
-        logGroup,
-        vpc,
-        vpcSubnets: subnets ? { subnets } : undefined,
-        securityGroups,
-      }
-    );
+    const layers = [...this.layers];
+    const sharedLayer = CdkLess.getSharedLayer();
+    if (sharedLayer) layers.push(sharedLayer);
+
+    let lambdaFunction: lambda.Function;
+    const defaultSettings = CdkLess.getDefaultSettings();
+
+    if (defaultSettings.bundleLambdasFromTypeScript) {
+      const bundling = this.bundlingOptions
+        ? { ...defaultSettings.defaultBundlingOptions, ...this.bundlingOptions }
+        : defaultSettings.defaultBundlingOptions;
+
+      lambdaFunction = new NodejsFunction(
+        this.scope,
+        `${this.resourceName}-function`,
+        {
+          functionName: functionName,
+          runtime: this.runtimeValue,
+          memorySize: this.memorySize,
+          timeout: this.timeoutDuration,
+          entry: `${this.handlerPath}.ts`,
+          handler: "handler",
+          bundling,
+          environment: this.environmentVars,
+          logGroup,
+          vpc,
+          vpcSubnets: subnets ? { subnets } : undefined,
+          securityGroups,
+          layers,
+        }
+      );
+    } else {
+      const handlerFile = this.handlerPath.split("/").pop() || "";
+      const handlerPath = this.handlerPath.split("/").slice(0, -1).join("/");
+
+      lambdaFunction = new lambda.Function(
+        this.scope,
+        `${this.resourceName}-function`,
+        {
+          functionName: functionName,
+          runtime: this.runtimeValue,
+          memorySize: this.memorySize,
+          timeout: this.timeoutDuration,
+          handler: `${handlerFile}.handler`,
+          code: lambda.Code.fromAsset(handlerPath, {
+            exclude: ['*', '**/*', `!${handlerFile}.js`, `!${handlerFile}.js.map`]
+          }),
+          environment: this.environmentVars,
+          logGroup,
+          vpc,
+          vpcSubnets: subnets ? { subnets } : undefined,
+          securityGroups,
+          layers,
+        }
+      );
+    }
 
     if (this.scope instanceof Stack && "getResourceTags" in this.scope) {
       const stackResourceTags = (this.scope as IStack).getResourceTags();
@@ -706,15 +744,18 @@ export class LambdaBuilder {
       );
       const props: DynamoEventSourceProps = {
         batchSize: config.batchSize || 10,
-        maxBatchingWindow: config.maxBatchingWindow 
+        maxBatchingWindow: config.maxBatchingWindow
           ? cdk.Duration.seconds(config.maxBatchingWindow)
           : cdk.Duration.seconds(1),
-        startingPosition: config.startingPosition || StartingPosition.TRIM_HORIZON,
+        startingPosition:
+          config.startingPosition || StartingPosition.TRIM_HORIZON,
         enabled: config.enabled ?? true,
         retryAttempts: config.retryAttempts,
         reportBatchItemFailures: config.reportBatchItemFailures,
-        filters: config.filters ? config.filters.map(filter => FilterCriteria.filter(filter)) : undefined,
-      }
+        filters: config.filters
+          ? config.filters.map((filter) => FilterCriteria.filter(filter))
+          : undefined,
+      };
       const eventSource = new DynamoEventSource(table, props);
 
       this.lambda.addEventSource(eventSource);
@@ -782,7 +823,7 @@ export class LambdaBuilder {
    *   .addVpcConfig({
    *     vpcId: "vpc-1234567890abcdef0"
    *   });
-   * 
+   *
    * // Full VPC configuration with subnets and security groups
    * app.lambda("src/handlers/users/get-user")
    *   .addVpcConfig({

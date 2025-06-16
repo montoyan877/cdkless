@@ -6,7 +6,7 @@ dotenv.config();
 /**
  * Example microservice application for a simple order management system
  */
-const app = new CdkLess("order-service");
+const app = new CdkLess({ appName: "order-service" });
 
 // API Endpoints for order management
 app
