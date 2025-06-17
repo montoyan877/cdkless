@@ -1,6 +1,6 @@
 {
   "name": "cdkless",
-  "version": "0.1.0-beta.28",
+  "version": "1.0.0",
   "description": "Ultra-simplified AWS CDK framework for building serverless microservices",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,7 +19,6 @@
     "test:cov": "jest --coverage",
     "lint": "eslint src --ext .ts",
     "docs": "typedoc --out docs src/index.ts",
-    "release:beta": "npm version prerelease --preid=beta && npm publish --tag beta",
     "build:tgz": "npm run build && npm pack"
   },
   "keywords": [
@@ -62,7 +61,6 @@
     "node": ">=14.0.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "beta"
+    "access": "public"
   }
 }
