@@ -520,46 +520,62 @@ layers/
 
 ### 🏷️ Resource Tagging
 
-CdkLess provides a simple way to manage tags for both your stack and individual resources:
+CdkLess provides a simple way to manage tags for both your stack and individual resources. By default, all resources get a `ProjectName` tag, but you can override this with your own default tags:
 
 ```typescript
-// Create a stack
-const app = new CdkLess({ appName: "user-services" });
-
-// Add tags to the stack
-app.addStackTags({
-  ProjectName: "user-services",
-  Owner: "tmd_ledger",
-  Critical: "false",
-  Environment: "dev",
-  CostCenter: "12345",
-  StackType: "production",
+// Create a stack with default tags
+const app = new CdkLess({
+  appName: "user-services",
+  stage: "prod",
+  settings: {
+    defaultTags: {
+      Environment: "production",
+      Owner: "team-a",
+      Project: "custom-project-name"  // Override default ProjectName
+    }
+  }
 });
 
-// Add tags to all resources
+// Resources will have the defaultTags:
+// - Environment: production
+// - Owner: team-a
+// - Project: custom-project-name
+
+// Or create a stack without default tags
+const app = new CdkLess({ appName: "user-services" });
+
+// Resources will have the automatic tag:
+// - ProjectName: user-services
+
+// Add additional tags to all resources
 app.addResourceTags({
-  ProjectName: "user-services",
-  Environment: "dev",
-  Department: "IT",
-  ManagedBy: "cdkless",
-  Version: "1.0.0",
+  CostCenter: "123456",
+  Environment: "staging"  // This will be added/override existing
 });
 
 // Add specific tags to a Lambda function
-app.lambda("src/handlers/users/create-user").post("/users").addTags({
-  Service: "user-service",
-  Component: "user-management",
-});
+app.lambda("src/handlers/users/create-user")
+   .post("/users")
+   .addTags({
+     Service: "users",
+     Environment: "custom"  // Override for this Lambda only
+   });
 ```
 
-#### Tag Inheritance
+#### Tag Inheritance Order
 
-- Stack tags are applied only to the stack itself
-- Resource tags are applied to all resources in the stack
-- Lambda-specific tags are applied only to that specific Lambda function
-- Tags are merged in the following order:
-  1. Stack resource tags
-  2. Lambda-specific tags
+Tags are applied in the following order (later ones take precedence):
+
+1. Either:
+   - Default tags from `settings.defaultTags` if provided, OR
+   - Automatic `ProjectName` tag if no default tags are provided
+2. Tags added via `addStackTags()` and `addResourceTags()`
+3. Lambda-specific tags added via `addTags()`
+
+This ensures that:
+- Resources always have a base set of tags (either custom or automatic)
+- Additional tags can be added or override existing ones
+- Lambda-specific tags have the highest priority for that resource
 
 ## 🔑 Adding Permissions to Lambda Functions
 

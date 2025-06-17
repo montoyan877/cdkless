@@ -76,15 +76,46 @@ const customApp = new CdkLess({
 - `stage`: The current deployment stage (e.g., 'dev', 'prod')
 - `stackProps`: The CDK Stack props options.
 - `settings`: The Cdkless settings options:
-- `settings.bundleLambdasFromTypeScript`: (Default: true) Controls TypeScript bundling behavior for Lambda functions:
-  - When true (default): Pass TypeScript handlers directly. Cdkless will handle the bundling process automatically.
-  - When false: You need to precompile your TypeScript code and pass JavaScript handlers instead.
+  - `settings.bundleLambdasFromTypeScript`: (Default: true) Controls TypeScript bundling behavior for Lambda functions:
+    - When true (default): Pass TypeScript handlers directly. Cdkless will handle the bundling process automatically.
+    - When false: You need to precompile your TypeScript code and pass JavaScript handlers instead.
+  - `settings.defaultBundlingOptions`: Configure bundling options for TypeScript Lambda functions. Options include:
+    - `minify`: (boolean) Enable/disable code minification
+    - `sourceMap`: (boolean) Generate source maps
+    - `externalModules`: (string[]) Modules to exclude from bundling (e.g., ['aws-sdk'])
+    - And other esbuild options
+  - `settings.defaultTags`: (Default: {}) Default tags that will be applied to both the stack and all resources:
+    - By default, a `ProjectName` tag is automatically added with the value of your stack ID
+    - Additional default tags can be specified here and will be merged with the `ProjectName` tag
+    - These tags will be applied to both the stack and all resources
+    - You can still add more tags later using `addStackTags()` or `addResourceTags()`
 
-- `settings.defaultBundlingOptions`: Configure bundling options for TypeScript Lambda functions. Options include:
-  - `minify`: (boolean) Enable/disable code minification
-  - `sourceMap`: (boolean) Generate source maps
-  - `externalModules`: (string[]) Modules to exclude from bundling (e.g., ['aws-sdk'])
-  - And other esbuild options
+**Example with Default Tags:**
+
+```typescript
+const app = new CdkLess({
+  appName: "user-services",
+  stage: "prod",
+  settings: {
+    defaultTags: {
+      Environment: "production",
+      Owner: "team-a",
+      CostCenter: "123456"
+    }
+  }
+});
+
+// The stack and all resources will automatically have these tags:
+// - ProjectName: user-services-prod
+// - Environment: production
+// - Owner: team-a
+// - CostCenter: 123456
+
+// You can still add more tags later
+app.addStackTags({
+  Critical: "true"
+});
+```
 
 #### Methods
 

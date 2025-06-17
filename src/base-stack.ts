@@ -20,6 +20,7 @@ let defaultSettings: IStackSettings = {
     sourceMap: false,
     externalModules: ["aws-sdk", "@aws-sdk/*", "/opt/*"],
   },
+  defaultTags: {},
 };
 
 /**
@@ -55,6 +56,17 @@ export class CdkLess extends cdk.Stack implements IStack {
 
     this.app = app;
     this.stage = stage;
+
+    // Initialize tags based on settings or default ProjectName
+    if (settings.defaultTags) {
+      // Use settings.defaultTags if provided
+      this.stackTags = { ...settings.defaultTags };
+      this.resourceTags = { ...settings.defaultTags };
+    } else {
+      // Use automatic ProjectName tag if no defaultTags provided
+      this.stackTags = { ProjectName: stackId };
+      this.resourceTags = { ProjectName: stackId };
+    }
 
     process.on("beforeExit", () => {
       this.synth();
