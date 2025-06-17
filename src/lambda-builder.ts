@@ -758,6 +758,8 @@ export class LambdaBuilder {
         maxBatchingWindow: cdk.Duration.seconds(
           options?.maxBatchingWindow || 1
         ),
+        startingPosition:
+          options?.startingPosition || StartingPosition.LATEST,
       };
       this.lambda.addEventSourceMapping(streamArn, sourceMappingOptions);
     });
