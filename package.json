@@ -19,7 +19,6 @@
     "test:cov": "jest --coverage",
     "lint": "eslint src --ext .ts",
     "docs": "typedoc --out docs src/index.ts",
-    "release:beta": "npm version prerelease --preid=beta && npm publish --tag beta",
     "build:tgz": "npm run build && npm pack"
   },
   "keywords": [
