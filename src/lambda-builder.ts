@@ -36,9 +36,13 @@ import {
   MSKConfig,
   SMKConfig,
   DynamoStreamsConfig,
-  DynamoStreamsOptions
+  DynamoStreamsOptions,
 } from "./interfaces/lambda";
-import { EventSourceMappingOptions, FilterCriteria, StartingPosition } from "aws-cdk-lib/aws-lambda";
+import {
+  EventSourceMappingOptions,
+  FilterCriteria,
+  StartingPosition,
+} from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
 import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
@@ -264,7 +268,12 @@ export class LambdaBuilder {
           timeout: this.timeoutDuration,
           handler: `${handlerFile}.handler`,
           code: lambda.Code.fromAsset(handlerPath, {
-            exclude: ['*', '**/*', `!${handlerFile}.js`, `!${handlerFile}.js.map`]
+            exclude: [
+              "*",
+              "**/*",
+              `!${handlerFile}.js`,
+              `!${handlerFile}.js.map`,
+            ],
           }),
           environment: this.environmentVars,
           logGroup,
@@ -480,8 +489,11 @@ export class LambdaBuilder {
    * @param DynamoStreamsOptions Optional configuration for the DynamoDB Streams trigger
    * @returns The LambdaBuilder instance for method chaining
    */
-  public addDynamoStreamsTrigger(streamArn: string, options?: DynamoStreamsOptions): LambdaBuilder {
-    this.dynamoStreamsConfigs.push({streamArn, options});
+  public addDynamoStreamsTrigger(
+    streamArn: string,
+    options?: DynamoStreamsOptions
+  ): LambdaBuilder {
+    this.dynamoStreamsConfigs.push({ streamArn, options });
     return this;
   }
 
@@ -737,32 +749,44 @@ export class LambdaBuilder {
   /**
    * Applies all stored DynamoDB Streams trigger configurations to the Lambda function.
    * This method processes each DynamoDB Streams configuration and creates the corresponding
-   * event source with the specified properties like batch size, batching window, and filters.
-   * 
+   * event source with the specified properties like batch size, batching window, filters,
+   * and advanced options such as retry attempts, parallelization, and failure destinations.
+   *
    * For each configuration:
    * - Creates a DynamoDB table reference from the provided ARN
    * - Configures the event source with batch processing settings
    * - Applies any specified filters for event filtering
+   * - Configures advanced options like parallelization, retry attempts, and failure handling
    * - Adds the event source to the Lambda function
-   * 
+   *
    * @private
    * @returns void
    */
   private applyDynamoStreamsTriggers(): void {
-    this.dynamoStreamsConfigs.forEach((config) => {
-      const { streamArn, options } = config;
-      const sourceMappingOptions: EventSourceMappingOptions = {
-        eventSourceArn: streamArn,
-        enabled: options?.enabled ?? true,
-        batchSize: options?.batchSize || 10,
-        maxBatchingWindow: cdk.Duration.seconds(
-          options?.maxBatchingWindow || 1
-        ),
-        startingPosition:
-          options?.startingPosition || StartingPosition.LATEST,
-      };
-      this.lambda.addEventSourceMapping(streamArn, sourceMappingOptions);
-    });
+    this.dynamoStreamsConfigs.forEach(
+      (config: DynamoStreamsConfig, index: number) => {
+        const { streamArn, options } = config;
+
+        const advancedOptions = options?.advancedOptions || {};
+
+        const sourceMappingOptions: EventSourceMappingOptions = {
+          eventSourceArn: streamArn,
+          enabled: options?.enabled ?? true,
+          batchSize: options?.batchSize || 10,
+          maxBatchingWindow: cdk.Duration.seconds(
+            options?.maxBatchingWindow || 0
+          ),
+          startingPosition:
+            options?.startingPosition || StartingPosition.LATEST,
+          reportBatchItemFailures: options?.reportBatchItemFailures,
+          retryAttempts: options?.retryAttempts,
+          filters: options?.filters,
+          ...advancedOptions,
+        };
+
+        this.lambda.addEventSourceMapping(streamArn, sourceMappingOptions);
+      }
+    );
   }
 
   public build(): lambda.Function {
