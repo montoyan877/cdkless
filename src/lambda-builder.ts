@@ -36,9 +36,13 @@ import {
   MSKConfig,
   SMKConfig,
   DynamoStreamsConfig,
-  DynamoStreamsOptions
+  DynamoStreamsOptions,
 } from "./interfaces/lambda";
-import { EventSourceMappingOptions, FilterCriteria, StartingPosition } from "aws-cdk-lib/aws-lambda";
+import {
+  EventSourceMappingOptions,
+  FilterCriteria,
+  StartingPosition,
+} from "aws-cdk-lib/aws-lambda";
 import { RouteOptions } from "./interfaces";
 import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
@@ -85,6 +89,26 @@ export class LambdaBuilder {
   private logRetentionDays: logs.RetentionDays = logs.RetentionDays.ONE_MONTH;
   private handlerPath: string;
   private bundlingOptions?: BundlingOptions;
+
+  /**
+   * Converts a CamelCase string to kebab-case (separated by hyphens)
+   * @param camelCaseStr The CamelCase string to convert
+   * @returns The kebab-case string
+   * @example
+   * // Returns "foo-bar"
+   * this.camelCaseToKebabCase("FooBar");
+   *
+   * // Returns "hello-world-example"
+   * this.camelCaseToKebabCase("HelloWorldExample");
+   *
+   * // Returns "simple"
+   * this.camelCaseToKebabCase("simple");
+   */
+  private camelCaseToKebabCase(camelCaseStr: string): string {
+    return camelCaseStr
+      .replace(/([a-z])([A-Z])/g, "$1-$2") // Insert hyphen before uppercase letters
+      .toLowerCase(); // Convert entire string to lowercase
+  }
 
   constructor(props: LambdaBuilderProps) {
     this.scope = props.scope;
@@ -176,6 +200,10 @@ export class LambdaBuilder {
     if (!this.handlerPath) {
       throw new Error("Handler path is not defined");
     }
+    const functionName =
+      this.stage.length > 0
+        ? `${this.camelCaseToKebabCase(this.resourceName)}-${this.stage}`
+        : this.camelCaseToKebabCase(this.resourceName);
 
     const logGroup = new logs.LogGroup(
       this.scope,
@@ -183,13 +211,9 @@ export class LambdaBuilder {
       {
         retention: this.logRetentionDays,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
+        logGroupName: `${functionName}-log-group`,
       }
     );
-
-    const functionName =
-      this.stage.length > 0
-        ? `${this.resourceName}-${this.stage}`
-        : this.resourceName;
 
     let vpc: ec2.IVpc | undefined;
     let subnets: ec2.ISubnet[] | undefined;
@@ -264,7 +288,12 @@ export class LambdaBuilder {
           timeout: this.timeoutDuration,
           handler: `${handlerFile}.handler`,
           code: lambda.Code.fromAsset(handlerPath, {
-            exclude: ['*', '**/*', `!${handlerFile}.js`, `!${handlerFile}.js.map`]
+            exclude: [
+              "*",
+              "**/*",
+              `!${handlerFile}.js`,
+              `!${handlerFile}.js.map`,
+            ],
           }),
           environment: this.environmentVars,
           logGroup,
@@ -480,8 +509,11 @@ export class LambdaBuilder {
    * @param DynamoStreamsOptions Optional configuration for the DynamoDB Streams trigger
    * @returns The LambdaBuilder instance for method chaining
    */
-  public addDynamoStreamsTrigger(streamArn: string, options?: DynamoStreamsOptions): LambdaBuilder {
-    this.dynamoStreamsConfigs.push({streamArn, options});
+  public addDynamoStreamsTrigger(
+    streamArn: string,
+    options?: DynamoStreamsOptions
+  ): LambdaBuilder {
+    this.dynamoStreamsConfigs.push({ streamArn, options });
     return this;
   }
 
@@ -738,13 +770,13 @@ export class LambdaBuilder {
    * Applies all stored DynamoDB Streams trigger configurations to the Lambda function.
    * This method processes each DynamoDB Streams configuration and creates the corresponding
    * event source with the specified properties like batch size, batching window, and filters.
-   * 
+   *
    * For each configuration:
    * - Creates a DynamoDB table reference from the provided ARN
    * - Configures the event source with batch processing settings
    * - Applies any specified filters for event filtering
    * - Adds the event source to the Lambda function
-   * 
+   *
    * @private
    * @returns void
    */
