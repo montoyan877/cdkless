@@ -90,26 +90,6 @@ export class LambdaBuilder {
   private handlerPath: string;
   private bundlingOptions?: BundlingOptions;
 
-  /**
-   * Converts a CamelCase string to kebab-case (separated by hyphens)
-   * @param camelCaseStr The CamelCase string to convert
-   * @returns The kebab-case string
-   * @example
-   * // Returns "foo-bar"
-   * this.camelCaseToKebabCase("FooBar");
-   *
-   * // Returns "hello-world-example"
-   * this.camelCaseToKebabCase("HelloWorldExample");
-   *
-   * // Returns "simple"
-   * this.camelCaseToKebabCase("simple");
-   */
-  private camelCaseToKebabCase(camelCaseStr: string): string {
-    return camelCaseStr
-      .replace(/([a-z])([A-Z])/g, "$1-$2") // Insert hyphen before uppercase letters
-      .toLowerCase(); // Convert entire string to lowercase
-  }
-
   constructor(props: LambdaBuilderProps) {
     this.scope = props.scope;
     this.stack = Stack.of(this.scope);
@@ -868,5 +848,25 @@ export class LambdaBuilder {
   public addVpcConfig(vpcConfig: IVpcConfig): LambdaBuilder {
     this.vpcConfig = vpcConfig;
     return this;
+  }
+
+  /**
+   * Converts a CamelCase string to kebab-case (separated by hyphens)
+   * @param camelCaseStr The CamelCase string to convert
+   * @returns The kebab-case string
+   * @example
+   * // Returns "foo-bar"
+   * this.camelCaseToKebabCase("FooBar");
+   *
+   * // Returns "hello-world-example"
+   * this.camelCaseToKebabCase("HelloWorldExample");
+   *
+   * // Returns "simple"
+   * this.camelCaseToKebabCase("simple");
+   */
+  private camelCaseToKebabCase(camelCaseStr: string): string {
+    return camelCaseStr
+      .replace(/([a-z])([A-Z])/g, "$1-$2") // Insert hyphen before uppercase letters
+      .toLowerCase(); // Convert entire string to lowercase
   }
 }
