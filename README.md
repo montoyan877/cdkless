@@ -2,23 +2,10 @@
 
 [![npm version](https://badge.fury.io/js/cdkless.svg)](https://badge.fury.io/js/cdkless)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Status: Beta](https://img.shields.io/badge/Status-Beta-orange.svg)]()
 
 > The simplest way to build serverless microservices with AWS CDK
 
 CdkLess dramatically simplifies the development of serverless microservices on AWS by providing a clean, intuitive API that abstracts away the complexities of the AWS Cloud Development Kit (CDK).
-
-## ⚠️ Beta Status
-
-**CdkLess is currently in beta.** While it's functional and usable, please be aware of the following:
-
-- The API may change without following strict semantic versioning until v1.0
-- Some features are still in development
-- Documentation might be incomplete in some areas
-- Use in production environments at your own risk
-- We welcome feedback, bug reports, and contributions to help stabilize the library
-
-We're actively working to reach a stable 1.0 release and appreciate your understanding and support during this beta phase.
 
 ## 🚀 Installation
 
@@ -520,46 +507,62 @@ layers/
 
 ### 🏷️ Resource Tagging
 
-CdkLess provides a simple way to manage tags for both your stack and individual resources:
+CdkLess provides a simple way to manage tags for both your stack and individual resources. By default, all resources get a `ProjectName` tag, but you can override this with your own default tags:
 
 ```typescript
-// Create a stack
-const app = new CdkLess({ appName: "user-services" });
-
-// Add tags to the stack
-app.addStackTags({
-  ProjectName: "user-services",
-  Owner: "tmd_ledger",
-  Critical: "false",
-  Environment: "dev",
-  CostCenter: "12345",
-  StackType: "production",
+// Create a stack with default tags
+const app = new CdkLess({
+  appName: "user-services",
+  stage: "prod",
+  settings: {
+    defaultTags: {
+      Environment: "production",
+      Owner: "team-a",
+      Project: "custom-project-name"  // Override default ProjectName
+    }
+  }
 });
 
-// Add tags to all resources
+// Resources will have the defaultTags:
+// - Environment: production
+// - Owner: team-a
+// - Project: custom-project-name
+
+// Or create a stack without default tags
+const app = new CdkLess({ appName: "user-services" });
+
+// Resources will have the automatic tag:
+// - ProjectName: user-services
+
+// Add additional tags to all resources
 app.addResourceTags({
-  ProjectName: "user-services",
-  Environment: "dev",
-  Department: "IT",
-  ManagedBy: "cdkless",
-  Version: "1.0.0",
+  CostCenter: "123456",
+  Environment: "staging"  // This will be added/override existing
 });
 
 // Add specific tags to a Lambda function
-app.lambda("src/handlers/users/create-user").post("/users").addTags({
-  Service: "user-service",
-  Component: "user-management",
-});
+app.lambda("src/handlers/users/create-user")
+   .post("/users")
+   .addTags({
+     Service: "users",
+     Environment: "custom"  // Override for this Lambda only
+   });
 ```
 
-#### Tag Inheritance
+#### Tag Inheritance Order
 
-- Stack tags are applied only to the stack itself
-- Resource tags are applied to all resources in the stack
-- Lambda-specific tags are applied only to that specific Lambda function
-- Tags are merged in the following order:
-  1. Stack resource tags
-  2. Lambda-specific tags
+Tags are applied in the following order (later ones take precedence):
+
+1. Either:
+   - Default tags from `settings.defaultTags` if provided, OR
+   - Automatic `ProjectName` tag if no default tags are provided
+2. Tags added via `addStackTags()` and `addResourceTags()`
+3. Lambda-specific tags added via `addTags()`
+
+This ensures that:
+- Resources always have a base set of tags (either custom or automatic)
+- Additional tags can be added or override existing ones
+- Lambda-specific tags have the highest priority for that resource
 
 ## 🔑 Adding Permissions to Lambda Functions
 
@@ -699,10 +702,6 @@ Yes, CdkLess doesn't hide the underlying CDK. You can always access the shared A
 ### How does deployment work?
 
 CdkLess handles the CDK synthesis process automatically when your application runs. Just execute your application with `cdk deploy` and it will deploy to AWS.
-
-### What does the beta status mean for my project?
-
-During the beta phase, we recommend using CdkLess for non-critical projects, proofs of concept, or in environments where you can tolerate potential API changes. We're working hard to stabilize the API for a 1.0 release, but until then, you should expect possible breaking changes between minor versions. We recommend pinning to exact versions in your package.json during the beta period.
 
 ## 📋 Requirements
 
