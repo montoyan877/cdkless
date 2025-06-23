@@ -182,16 +182,16 @@ export class LambdaBuilder {
     }
     const functionName =
       this.stage.length > 0
-        ? `${this.camelCaseToKebabCase(this.resourceName)}-${this.stage}`
-        : this.camelCaseToKebabCase(this.resourceName);
+        ? `${this.resourceName}-${this.stage}`
+        : this.resourceName;
 
     const logGroup = new logs.LogGroup(
       this.scope,
-      `${this.resourceName}-log-group`,
+      `${this.camelCaseToKebabCase(this.resourceName)}-log-group`,
       {
         retention: this.logRetentionDays,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
-        logGroupName: `${functionName}-log-group`,
+        logGroupName: `${this.camelCaseToKebabCase(functionName)}-log-group`,
       }
     );
 
