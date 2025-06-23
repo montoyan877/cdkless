@@ -98,14 +98,14 @@ const app = new CdkLess({
   settings: {
     // Use TypeScript handlers directly (default)
     bundleLambdasFromTypeScript: true,
-    
+
     // Configure bundling options
     defaultBundlingOptions: {
       minify: true,
       sourceMap: true,
-      externalModules: ['aws-sdk', '@aws-sdk/*'],
-    }
-  }
+      externalModules: ["aws-sdk", "@aws-sdk/*"],
+    },
+  },
 });
 
 // Use TypeScript handlers directly
@@ -300,55 +300,83 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
 
 ##### DynamoDB Streams Trigger Configuration
 
-The DynamoDB Streams trigger allows processing real-time changes from a DynamoDB table. The configuration includes the following options:
+The DynamoDB Streams trigger allows processing real-time changes from a DynamoDB table. This enables your Lambda function to automatically respond to data changes (inserts, updates, deletes) in the DynamoDB table.
+
+**Configuration Options:**
+
+- `batchSize`: Number of records to process in each batch (1-10000, default: 10)
+- `maxBatchingWindow`: Maximum time in seconds to wait for records before processing (0-300, default: 0)
+- `startingPosition`: Starting position for reading from the stream
+  - `TRIM_HORIZON`: Start from the beginning of the stream
+  - `LATEST`: Start from the latest records
+  - `AT_TIMESTAMP`: Start from a specific timestamp
+- `enabled`: Whether the trigger is enabled (default: true)
+- `retryAttempts`: Number of retry attempts for failed records (0-10000, default: -1 for infinite)
+- `reportBatchItemFailures`: Whether to report individual batch item failures (default: false)
+- `filters`: Array of FilterCriteria to filter events before processing
+- `advancedOptions`: Advanced configuration options for performance tuning
+  - `maxRecordAge`: Maximum age of records to process
+  - `bisectBatchOnError`: Split batch in two and retry on error
+  - `parallelizationFactor`: Number of concurrent batches per shard (1-10)
+  - `tumblingWindow`: Size of tumbling windows to group records (0-15 minutes)
+  - `filterEncryption`: KMS key for filter criteria encryption
+  - `metricsConfig`: Enhanced monitoring metrics configuration
+  - `provisionedPollerConfig`: Provisioned poller configuration
+
+**Examples:**
+
+Basic usage:
 
 ```typescript
-interface DynamoStreamsOptions {
-  /** Batch size for processing messages (default: 10) */
-  batchSize?: number;
-  /** Maximum waiting time to accumulate messages in a batch (in seconds) */
-  maxBatchingWindow?: number;
-  /** Starting position for the stream consumer */
-  startingPosition?: StartingPosition;
-  /** Whether the integration is enabled (default: true) */
-  enabled?: boolean;
-  /** Number of retry attempts for failed records */
-  retryAttempts?: number;
-  /** Whether to report individual batch item failures */
-  reportBatchItemFailures?: boolean;
-  /** Filters for stream events */
-  filters?: lambda.FilterCriteria[];
-}
+app
+  .lambda("src/handlers/users/process-user-changes")
+  .addDynamoStreamsTrigger(
+    "arn:aws:dynamodb:us-east-1:123456789012:table/Users/stream/2024-01-01T00:00:00.000"
+  );
 ```
 
-Example usage with all options:
+With custom configuration:
 
 ```typescript
 app
   .lambda("src/handlers/orders/process-order-changes")
   .addDynamoStreamsTrigger(
-    "arn:aws:dynamodb:region:account:table/orders-table/stream/lastest",
+    "arn:aws:dynamodb:us-east-1:123456789012:table/Orders/stream/2024-01-01T00:00:00.000",
     {
-      batchSize: 10, // Process 10 records per batch
-      maxBatchingWindow: 5, // Wait up to 5 seconds to accumulate records
-      startingPosition: StartingPosition.TRIM_HORIZON, // Start from the beginning of the stream
-      enabled: true, // Enable the trigger
-      retryAttempts: 3, // Retry 3 times in case of failure
-      reportBatchItemFailures: true, // Report individual batch item failures
+      batchSize: 50,
+      maxBatchingWindow: 5,
+      startingPosition: StartingPosition.TRIM_HORIZON,
+      retryAttempts: 3,
+      reportBatchItemFailures: true,
       filters: [
         {
-          pattern: {
+          pattern: JSON.stringify({
             eventName: ["INSERT", "MODIFY"],
-            dynamodb: {
-              NewImage: {
-                status: {
-                  S: ["PENDING", "PROCESSING"]
-                }
-              }
-            }
-          }
-        }
-      ]
+          }),
+        },
+      ],
+    }
+  );
+```
+
+High-performance configuration with advanced options:
+
+```typescript
+app
+  .lambda("src/handlers/high-volume-processor")
+  .addDynamoStreamsTrigger(
+    "arn:aws:dynamodb:us-east-1:123456789012:table/HighVolumeTable/stream/2024-01-01T00:00:00.000",
+    {
+      batchSize: 100,
+      maxBatchingWindow: 10,
+      startingPosition: StartingPosition.LATEST,
+      reportBatchItemFailures: true,
+      advancedOptions: {
+        parallelizationFactor: 5,
+        maxRecordAge: Duration.hours(24),
+        bisectBatchOnError: true,
+        tumblingWindow: Duration.minutes(5),
+      },
     }
   );
 ```
@@ -400,6 +428,7 @@ CdkLess provides powerful options for managing Lambda layers, including shared l
 Configure a shared layer that will be automatically attached to all Lambda functions in your stack. This is perfect for common dependencies, utilities, or shared libraries.
 
 > **Note:** When using TypeScript for layers, you need to compile your code first and structure the output following AWS Lambda layer standards (i.e., place your compiled files in a `/nodejs` folder). For example:
+>
 > ```
 > /dist/layers/common-utilities/
 > └── nodejs/
@@ -518,9 +547,9 @@ const app = new CdkLess({
     defaultTags: {
       Environment: "production",
       Owner: "team-a",
-      Project: "custom-project-name"  // Override default ProjectName
-    }
-  }
+      Project: "custom-project-name", // Override default ProjectName
+    },
+  },
 });
 
 // Resources will have the defaultTags:
@@ -537,16 +566,14 @@ const app = new CdkLess({ appName: "user-services" });
 // Add additional tags to all resources
 app.addResourceTags({
   CostCenter: "123456",
-  Environment: "staging"  // This will be added/override existing
+  Environment: "staging", // This will be added/override existing
 });
 
 // Add specific tags to a Lambda function
-app.lambda("src/handlers/users/create-user")
-   .post("/users")
-   .addTags({
-     Service: "users",
-     Environment: "custom"  // Override for this Lambda only
-   });
+app.lambda("src/handlers/users/create-user").post("/users").addTags({
+  Service: "users",
+  Environment: "custom", // Override for this Lambda only
+});
 ```
 
 #### Tag Inheritance Order
@@ -560,6 +587,7 @@ Tags are applied in the following order (later ones take precedence):
 3. Lambda-specific tags added via `addTags()`
 
 This ensures that:
+
 - Resources always have a base set of tags (either custom or automatic)
 - Additional tags can be added or override existing ones
 - Lambda-specific tags have the highest priority for that resource
