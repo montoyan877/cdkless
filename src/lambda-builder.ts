@@ -484,10 +484,72 @@ export class LambdaBuilder {
   }
 
   /**
-   * Adds a DynamoDB Streams trigger to the Lambda function
-   * @param streamArn ARN of the DynamoDB Stream
-   * @param DynamoStreamsOptions Optional configuration for the DynamoDB Streams trigger
+   * Adds a DynamoDB Streams trigger to the Lambda function to process real-time stream records
+   * from a DynamoDB table. This allows your Lambda function to automatically respond to
+   * data changes (inserts, updates, deletes) in the DynamoDB table.
+   *
+   * @param streamArn ARN of the DynamoDB Stream (e.g., "arn:aws:dynamodb:us-east-1:123456789012:table/MyTable/stream/2024-01-01T00:00:00.000")
+   * @param options Optional configuration for the DynamoDB Streams trigger
+   * @param options.batchSize Number of records to process in each batch (1-10000, default: 10)
+   * @param options.maxBatchingWindow Maximum time in seconds to wait for records before processing (0-300, default: 0)
+   * @param options.startingPosition Starting position for reading from the stream (TRIM_HORIZON, LATEST, AT_TIMESTAMP)
+   * @param options.enabled Whether the trigger is enabled (default: true)
+   * @param options.retryAttempts Number of retry attempts for failed records (0-10000, default: -1 for infinite)
+   * @param options.reportBatchItemFailures Whether to report individual batch item failures (default: false)
+   * @param options.filters Array of FilterCriteria to filter events before processing
+   * @param options.advancedOptions Advanced configuration options for performance tuning
+   * @param options.advancedOptions.maxRecordAge Maximum age of records to process
+   * @param options.advancedOptions.bisectBatchOnError Split batch in two and retry on error
+   * @param options.advancedOptions.parallelizationFactor Number of concurrent batches per shard (1-10)
+   * @param options.advancedOptions.tumblingWindow Size of tumbling windows to group records (0-15 minutes)
+   * @param options.advancedOptions.filterEncryption KMS key for filter criteria encryption
+   * @param options.advancedOptions.metricsConfig Enhanced monitoring metrics configuration
+   * @param options.advancedOptions.provisionedPollerConfig Provisioned poller configuration
+   *
    * @returns The LambdaBuilder instance for method chaining
+   *
+   * @example
+   * Basic DynamoDB Streams trigger
+   * app.lambda("src/handlers/process-user-changes")
+   *   .addDynamoStreamsTrigger("arn:aws:dynamodb:us-east-1:123456789012:table/Users/stream/2024-01-01T00:00:00.000");
+   *
+   * @example
+   * DynamoDB Streams trigger with custom configuration
+   * app.lambda("src/handlers/process-order-changes")
+   *   .addDynamoStreamsTrigger(
+   *     "arn:aws:dynamodb:us-east-1:123456789012:table/Orders/stream/2024-01-01T00:00:00.000",
+   *     {
+   *       batchSize: 50,
+   *       maxBatchingWindow: 5,
+   *       startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+   *       retryAttempts: 3,
+   *       reportBatchItemFailures: true,
+   *       filters: [{
+   *         pattern: JSON.stringify({
+   *           eventName: ["INSERT", "MODIFY"]
+   *         })
+   *       }]
+   *     }
+   *   );
+   *
+   * @example
+   * DynamoDB Streams trigger with advanced options for high-performance scenarios
+   * app.lambda("src/handlers/high-volume-processor")
+   *   .addDynamoStreamsTrigger(
+   *     "arn:aws:dynamodb:us-east-1:123456789012:table/HighVolumeTable/stream/2024-01-01T00:00:00.000",
+   *     {
+   *       batchSize: 100,
+   *       maxBatchingWindow: 10,
+   *       startingPosition: lambda.StartingPosition.LATEST,
+   *       reportBatchItemFailures: true,
+   *       advancedOptions: {
+   *         parallelizationFactor: 5,
+   *         maxRecordAge: cdk.Duration.hours(24),
+   *         bisectBatchOnError: true,
+   *         tumblingWindow: cdk.Duration.minutes(5)
+   *       }
+   *     }
+   *   );
    */
   public addDynamoStreamsTrigger(
     streamArn: string,
@@ -749,28 +811,39 @@ export class LambdaBuilder {
   /**
    * Applies all stored DynamoDB Streams trigger configurations to the Lambda function.
    * This method processes each DynamoDB Streams configuration and creates the corresponding
-   * event source with the specified properties like batch size, batching window, and filters.
+   * event source with the specified properties like batch size, batching window, filters,
+   * and advanced options such as retry attempts, parallelization, and failure destinations.
    *
    * For each configuration:
    * - Creates a DynamoDB table reference from the provided ARN
    * - Configures the event source with batch processing settings
    * - Applies any specified filters for event filtering
+   * - Configures advanced options like parallelization, retry attempts, and failure handling
    * - Adds the event source to the Lambda function
    *
    * @private
    * @returns void
    */
   private applyDynamoStreamsTriggers(): void {
-    this.dynamoStreamsConfigs.forEach((config) => {
+    this.dynamoStreamsConfigs.forEach((config: DynamoStreamsConfig) => {
       const { streamArn, options } = config;
+
+      const advancedOptions = options?.advancedOptions || {};
+
       const sourceMappingOptions: EventSourceMappingOptions = {
         eventSourceArn: streamArn,
         enabled: options?.enabled ?? true,
         batchSize: options?.batchSize || 10,
         maxBatchingWindow: cdk.Duration.seconds(
-          options?.maxBatchingWindow || 1
+          options?.maxBatchingWindow || 0
         ),
+        startingPosition: options?.startingPosition || StartingPosition.LATEST,
+        reportBatchItemFailures: options?.reportBatchItemFailures,
+        retryAttempts: options?.retryAttempts,
+        filters: options?.filters,
+        ...advancedOptions,
       };
+
       this.lambda.addEventSourceMapping(streamArn, sourceMappingOptions);
     });
   }
