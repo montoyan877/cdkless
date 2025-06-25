@@ -180,20 +180,20 @@ export class LambdaBuilder {
     if (!this.handlerPath) {
       throw new Error("Handler path is not defined");
     }
-
-    const logGroup = new logs.LogGroup(
-      this.scope,
-      `${this.resourceName}-log-group`,
-      {
-        retention: this.logRetentionDays,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-      }
-    );
-
     const functionName =
       this.stage.length > 0
         ? `${this.resourceName}-${this.stage}`
         : this.resourceName;
+
+    const logGroup = new logs.LogGroup(
+      this.scope,
+      `${this.camelCaseToKebabCase(this.resourceName)}-log-group`,
+      {
+        retention: this.logRetentionDays,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        logGroupName: `${this.camelCaseToKebabCase(functionName)}-log-group`,
+      }
+    );
 
     let vpc: ec2.IVpc | undefined;
     let subnets: ec2.ISubnet[] | undefined;
@@ -921,5 +921,25 @@ export class LambdaBuilder {
   public addVpcConfig(vpcConfig: IVpcConfig): LambdaBuilder {
     this.vpcConfig = vpcConfig;
     return this;
+  }
+
+  /**
+   * Converts a CamelCase string to kebab-case (separated by hyphens)
+   * @param camelCaseStr The CamelCase string to convert
+   * @returns The kebab-case string
+   * @example
+   * // Returns "foo-bar"
+   * this.camelCaseToKebabCase("FooBar");
+   *
+   * // Returns "hello-world-example"
+   * this.camelCaseToKebabCase("HelloWorldExample");
+   *
+   * // Returns "simple"
+   * this.camelCaseToKebabCase("simple");
+   */
+  private camelCaseToKebabCase(camelCaseStr: string): string {
+    return camelCaseStr
+      .replace(/([a-z])([A-Z])/g, "$1-$2") // Insert hyphen before uppercase letters
+      .toLowerCase(); // Convert entire string to lowercase
   }
 }
