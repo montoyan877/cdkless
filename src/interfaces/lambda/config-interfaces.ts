@@ -79,6 +79,8 @@ export interface MSKConfig {
   enabled?: boolean;
   /** Consumer group ID */
   consumerGroupId?: string;
+  /** Starting position date format ISO String */
+  startingPositionDate?: string;
 }
 
 export interface SMKConfig {
@@ -100,6 +102,8 @@ export interface SMKConfig {
   enabled?: boolean;
   /** Consumer group ID */
   consumerGroupId?: string;
+  /** Starting position date format ISO String */
+  startingPositionDate?: string;
 }
 
 /**

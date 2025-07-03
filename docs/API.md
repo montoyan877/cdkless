@@ -856,6 +856,81 @@ app
   });
 ```
 
+### Amazon MSK (Managed Streaming for Apache Kafka)
+
+```typescript
+// Basic MSK trigger
+app
+  .lambda("src/handlers/orders/process-msk-order")
+  .addMSKTrigger({
+    clusterArn: "arn:aws:kafka:us-east-1:123456789012:cluster/your-cluster",
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+  });
+
+// MSK trigger with custom configuration
+app
+  .lambda("src/handlers/orders/process-msk-order")
+  .addMSKTrigger({
+    clusterArn: "arn:aws:kafka:us-east-1:123456789012:cluster/your-cluster",
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+    batchSize: 100,
+    maximumBatchingWindow: 5,
+    startingPosition: StartingPosition.TRIM_HORIZON,
+    consumerGroupId: "orders-consumer-group",
+  });
+
+// MSK trigger with timestamp starting position
+app
+  .lambda("src/handlers/orders/process-msk-order")
+  .addMSKTrigger({
+    clusterArn: "arn:aws:kafka:us-east-1:123456789012:cluster/your-cluster",
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+    startingPosition: StartingPosition.AT_TIMESTAMP,
+    startingPositionDate: "2024-01-01T00:00:00.000Z",
+  });
+```
+
+### Self-Managed Kafka
+
+```typescript
+// Basic Self-Managed Kafka trigger (Confluent Cloud)
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addSMKTrigger({
+    bootstrapServers: ["pkc-p11xm.us-east-1.aws.confluent.cloud:9099"],
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+  });
+
+// Self-Managed Kafka trigger with custom configuration
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addSMKTrigger({
+    bootstrapServers: ["kafka-broker-1:9092", "kafka-broker-2:9092"],
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+    authenticationMethod: AuthenticationMethod.SASL_SCRAM_256_AUTH,
+    batchSize: 100,
+    maximumBatchingWindow: 5,
+    startingPosition: StartingPosition.TRIM_HORIZON,
+    consumerGroupId: "orders-consumer-group",
+  });
+
+// Self-Managed Kafka trigger with timestamp starting position
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addSMKTrigger({
+    bootstrapServers: ["kafka-broker-1:9092"],
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+    startingPosition: StartingPosition.AT_TIMESTAMP,
+    startingPositionDate: "2024-01-01T00:00:00.000Z",
+  });
+```
+
 ### SQS Queue
 
 ```typescript

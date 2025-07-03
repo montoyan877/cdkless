@@ -473,11 +473,114 @@ export class LambdaBuilder {
     return this;
   }
 
+  /**
+   * Adds an Amazon MSK (Managed Streaming for Apache Kafka) trigger to the Lambda function.
+   * This allows your Lambda function to consume messages from an Amazon MSK cluster.
+   * 
+   * @param config Configuration object for the MSK trigger
+   * @param config.clusterArn ARN of the Amazon MSK cluster
+   * @param config.topic Kafka topic to consume from
+   * @param config.secretArn ARN of the AWS Secrets Manager secret containing Kafka credentials
+   * @param config.batchSize Number of records to process in each batch (default: 10)
+   * @param config.maximumBatchingWindow Maximum time in seconds to wait for records before processing (default: 1)
+   * @param config.startingPosition Starting position for reading from the Kafka topic (TRIM_HORIZON, LATEST, AT_TIMESTAMP)
+   * @param config.startingPositionDate ISO String date for AT_TIMESTAMP starting position (format: YYYY-MM-DDTHH:mm:ss.sssZ)
+   * @param config.enabled Whether the trigger is enabled (default: true)
+   * @param config.consumerGroupId Custom consumer group ID (default: auto-generated)
+   * 
+   * @returns The LambdaBuilder instance for method chaining
+   * 
+   * @example
+   * Basic MSK trigger
+   * app.lambda("src/handlers/orders/process-msk-order")
+   *   .addMSKTrigger({
+   *     clusterArn: "arn:aws:kafka:us-east-1:123456789012:cluster/your-cluster",
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name"
+   *   });
+   * 
+   * @example
+   * MSK trigger with custom configuration
+   * app.lambda("src/handlers/orders/process-msk-order")
+   *   .addMSKTrigger({
+   *     clusterArn: "arn:aws:kafka:us-east-1:123456789012:cluster/your-cluster",
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+   *     batchSize: 100,
+   *     maximumBatchingWindow: 5,
+   *     startingPosition: StartingPosition.TRIM_HORIZON,
+   *     consumerGroupId: "orders-consumer-group"
+   *   });
+   * 
+   * @example
+   * MSK trigger with timestamp starting position
+   * app.lambda("src/handlers/orders/process-msk-order")
+   *   .addMSKTrigger({
+   *     clusterArn: "arn:aws:kafka:us-east-1:123456789012:cluster/your-cluster",
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+   *     startingPosition: StartingPosition.AT_TIMESTAMP,
+   *     startingPositionDate: "2024-01-01T00:00:00.000Z"
+   *   });
+   */
   public addMSKTrigger(config: MSKConfig): LambdaBuilder {
     this.mskConfigs.push(config);
     return this;
   }
 
+  /**
+   * Adds a Self-Managed Kafka trigger to the Lambda function.
+   * This allows your Lambda function to consume messages from a self-managed Kafka cluster
+   * (e.g., Confluent Cloud, on-premises Kafka, etc.).
+   * 
+   * @param config Configuration object for the Self-Managed Kafka trigger
+   * @param config.bootstrapServers Array of Kafka broker URLs
+   * @param config.topic Kafka topic to consume from
+   * @param config.secretArn ARN of the AWS Secrets Manager secret containing Kafka credentials
+   * @param config.authenticationMethod Authentication method for Kafka (default: SASL_SCRAM_512_AUTH)
+   * @param config.batchSize Number of records to process in each batch (default: 10)
+   * @param config.maximumBatchingWindow Maximum time in seconds to wait for records before processing (default: 1)
+   * @param config.startingPosition Starting position for reading from the Kafka topic (TRIM_HORIZON, LATEST, AT_TIMESTAMP)
+   * @param config.startingPositionDate ISO String date for AT_TIMESTAMP starting position (format: YYYY-MM-DDTHH:mm:ss.sssZ)
+   * @param config.enabled Whether the trigger is enabled (default: true)
+   * @param config.consumerGroupId Custom consumer group ID (default: auto-generated)
+   * 
+   * @returns The LambdaBuilder instance for method chaining
+   * 
+   * @example
+   * Basic Self-Managed Kafka trigger (Confluent Cloud)
+   * app.lambda("src/handlers/orders/process-kafka-order")
+   *   .addSMKTrigger({
+   *     bootstrapServers: ["pkc-p11xm.us-east-1.aws.confluent.cloud:9099"],
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name"
+   *   });
+   * 
+   * @example
+   * Self-Managed Kafka trigger with custom configuration
+   * app.lambda("src/handlers/orders/process-kafka-order")
+   *   .addSMKTrigger({
+   *     bootstrapServers: ["kafka-broker-1:9092", "kafka-broker-2:9092"],
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+   *     authenticationMethod: AuthenticationMethod.SASL_SCRAM_256_AUTH,
+   *     batchSize: 100,
+   *     maximumBatchingWindow: 5,
+   *     startingPosition: StartingPosition.TRIM_HORIZON,
+   *     consumerGroupId: "orders-consumer-group"
+   *   });
+   * 
+   * @example
+   * Self-Managed Kafka trigger with timestamp starting position
+   * app.lambda("src/handlers/orders/process-kafka-order")
+   *   .addSMKTrigger({
+   *     bootstrapServers: ["kafka-broker-1:9092"],
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+   *     startingPosition: StartingPosition.AT_TIMESTAMP,
+   *     startingPositionDate: "2024-01-01T00:00:00.000Z"
+   *   });
+   */
   public addSMKTrigger(config: SMKConfig): LambdaBuilder {
     this.smkConfigs.push(config);
     return this;
@@ -756,6 +859,15 @@ export class LambdaBuilder {
         `${this.resourceName}-kafka-secret`,
         config.secretArn
       );
+      let startingPositionTimestamp: number | undefined;
+      if (config.startingPositionDate && config.startingPosition === StartingPosition.AT_TIMESTAMP) {
+        // Validar que la fecha tenga formato ISO String
+        const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+        if (!isoDateRegex.test(config.startingPositionDate)) {
+          throw new Error(`Invalid ISO date format for startingPositionDate: ${config.startingPositionDate}. Expected format: YYYY-MM-DDTHH:mm:ss.sssZ`);
+        }
+        startingPositionTimestamp = new Date(config.startingPositionDate).getTime() / 1000;
+      }
 
       const eventSource = new ManagedKafkaEventSource({
         clusterArn: config.clusterArn,
@@ -771,6 +883,7 @@ export class LambdaBuilder {
         consumerGroupId:
           config?.consumerGroupId ||
           `lambda-${this.resourceName}-consumer-group`,
+        startingPositionTimestamp,
       });
 
       this.lambda.addEventSource(eventSource);

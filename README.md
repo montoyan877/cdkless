@@ -257,6 +257,15 @@ app.lambda("src/handlers/orders/process-msk-order").addMSKTrigger({
   consumerGroupId: "orders-consumer-group",
 });
 
+// Amazon MSK consumer with timestamp starting position
+app.lambda("src/handlers/orders/process-msk-order").addMSKTrigger({
+  clusterArn: "arn:aws:kafka:region:account:cluster/your-cluster",
+  topic: "orders-topic",
+  secretArn: "arn:aws:secretsmanager:region:account:secret/your-secret-name",
+  startingPosition: StartingPosition.AT_TIMESTAMP,
+  startingPositionDate: "2024-01-01T00:00:00.000Z",
+});
+
 // Self-Managed Kafka consumer (e.g., Confluent Cloud)
 app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
   bootstrapServers: ["pkc-p11xm.us-east-1.aws.confluent.cloud:9099"],
@@ -266,6 +275,15 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
   batchSize: 100,
   maximumBatchingWindow: 5,
   consumerGroupId: "orders-consumer-group",
+});
+
+// Self-Managed Kafka consumer with timestamp starting position
+app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
+  bootstrapServers: ["kafka-broker-1:9092"],
+  topic: "orders-topic",
+  secretArn: "arn:aws:secretsmanager:region:account:secret/your-secret-name",
+  startingPosition: StartingPosition.AT_TIMESTAMP,
+  startingPositionDate: "2024-01-01T00:00:00.000Z",
 });
 ```
 
@@ -277,6 +295,10 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
 - `batchSize`: Number of records to process in each batch (default: 10)
 - `maximumBatchingWindow`: Maximum time to wait for records in seconds (default: 1)
 - `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
+  - `TRIM_HORIZON`: Start from the beginning of the topic
+  - `LATEST`: Start from the latest records
+  - `AT_TIMESTAMP`: Start from a specific timestamp (requires `startingPositionDate`)
+- `startingPositionDate`: ISO String date for AT_TIMESTAMP starting position (format: YYYY-MM-DDTHH:mm:ss.sssZ)
 - `enabled`: Whether the trigger is enabled (default: true)
 - `consumerGroupId`: Custom consumer group ID (default: auto-generated)
 
@@ -295,6 +317,10 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
 - `batchSize`: Number of records to process in each batch (default: 10)
 - `maximumBatchingWindow`: Maximum time to wait for records in seconds (default: 1)
 - `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
+  - `TRIM_HORIZON`: Start from the beginning of the topic
+  - `LATEST`: Start from the latest records
+  - `AT_TIMESTAMP`: Start from a specific timestamp (requires `startingPositionDate`)
+- `startingPositionDate`: ISO String date for AT_TIMESTAMP starting position (format: YYYY-MM-DDTHH:mm:ss.sssZ)
 - `enabled`: Whether the trigger is enabled (default: true)
 - `consumerGroupId`: Custom consumer group ID (default: auto-generated)
 
