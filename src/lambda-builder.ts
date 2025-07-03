@@ -756,6 +756,15 @@ export class LambdaBuilder {
         `${this.resourceName}-kafka-secret`,
         config.secretArn
       );
+      let startingPositionTimestamp: number | undefined;
+      if (config.startingPositionDate && config.startingPosition === StartingPosition.AT_TIMESTAMP) {
+        // Validar que la fecha tenga formato ISO String
+        const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+        if (!isoDateRegex.test(config.startingPositionDate)) {
+          throw new Error(`Invalid ISO date format for startingPositionDate: ${config.startingPositionDate}. Expected format: YYYY-MM-DDTHH:mm:ss.sssZ`);
+        }
+        startingPositionTimestamp = new Date(config.startingPositionDate).getTime() / 1000;
+      }
 
       const eventSource = new ManagedKafkaEventSource({
         clusterArn: config.clusterArn,
@@ -771,6 +780,7 @@ export class LambdaBuilder {
         consumerGroupId:
           config?.consumerGroupId ||
           `lambda-${this.resourceName}-consumer-group`,
+        startingPositionTimestamp,
       });
 
       this.lambda.addEventSource(eventSource);
