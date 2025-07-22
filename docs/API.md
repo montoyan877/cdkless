@@ -548,6 +548,26 @@ app
   .timeout(cdk.Duration.seconds(60));
 ```
 
+##### architecture(arch: lambda.Architecture): LambdaBuilder
+
+Sets the architecture for the Lambda function.
+
+**Parameters:**
+
+- `arch`: Architecture for the Lambda function (`x86_64` or `arm64`). The default is `x86_64`.
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
+
+```typescript
+// Set the architecture to ARM64 for better performance and cost
+app
+  .lambda("src/handlers/compute-intensive/process-data")
+  .post("/process-data")
+  .architecture(lambda.Architecture.ARM_64);
+```
+
 ##### addAuthorizer(authorizer: apigatewayv2.HttpRouteAuthorizer, scopes?: string[]): LambdaBuilder
 
 Adds an authorizer to all API endpoints for this Lambda.
@@ -690,6 +710,7 @@ app
     THUMBNAIL_SIZE: "200x200",
     API_KEY: "secret-api-key",
   })
+  .architecture(lambda.Architecture.ARM_64) // Example of setting architecture
   .addS3Permissions("arn:aws:s3:region:account:bucket/images-bucket");
 ```
 
