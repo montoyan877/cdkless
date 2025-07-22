@@ -1,5 +1,6 @@
 import { Template } from "aws-cdk-lib/assertions";
 import { Duration } from "aws-cdk-lib";
+import { Architecture } from "aws-cdk-lib/aws-lambda";
 import { CdkLess } from "../../src";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 
@@ -202,6 +203,41 @@ describe("CdkLess Integration Tests", () => {
     template.hasResourceProperties("AWS::Lambda::Permission", {
       Action: "lambda:InvokeFunction",
       Principal: "events.amazonaws.com"
+    });
+  });
+
+  test("Lambda with x86_64 architecture (default) is created correctly", () => {
+    const cdkless = new CdkLess({ appName: "x86-arch-app" });
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("x86-lambda")
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "x86-lambda-test",
+      Architectures: [Architecture.X86_64]
+    });
+  });
+
+  test("Lambda with ARM64 architecture is created correctly", () => {
+    const cdkless = new CdkLess({ appName: "arm-arch-app" });
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("arm-lambda")
+      .architecture(Architecture.ARM_64)
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "arm-lambda-test",
+      Architectures: ["arm64"]
     });
   });
 });
