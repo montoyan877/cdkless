@@ -105,6 +105,9 @@ export class LambdaBuilder {
     // Store bundling options if provided
     this.bundlingOptions = props.bundling;
 
+    // Apply default Lambda options
+    this.applyDefaultLambdaOptions();
+
     // Create a proxy to handle automatic building
     return new Proxy(this, {
       get: (target: LambdaBuilder, prop: string | symbol, receiver: any) => {
@@ -1077,5 +1080,23 @@ export class LambdaBuilder {
     return camelCaseStr
       .replace(/([a-z])([A-Z])/g, "$1-$2") // Insert hyphen before uppercase letters
       .toLowerCase(); // Convert entire string to lowercase
+  }
+
+  private applyDefaultLambdaOptions(): void {
+    const defaultSettings = CdkLess.getDefaultSettings();
+    const defaultLambdaOptions = defaultSettings.defaultLambdaOptions || {};
+
+    this.runtimeValue = defaultLambdaOptions.runtime || this.runtimeValue;
+    this.memorySize = defaultLambdaOptions.memorySize || this.memorySize;
+    this.timeoutDuration = defaultLambdaOptions.timeout || this.timeoutDuration;
+    this.logRetentionDays = defaultLambdaOptions.logRetention || this.logRetentionDays;
+    this.architectureValue = defaultLambdaOptions.architecture || this.architectureValue;
+
+    if (defaultLambdaOptions.environment) {
+      this.environmentVars = {
+        ...this.environmentVars,
+        ...defaultLambdaOptions.environment,
+      };
+    }
   }
 }
