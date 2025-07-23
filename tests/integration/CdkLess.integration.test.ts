@@ -1,5 +1,6 @@
 import { Template } from "aws-cdk-lib/assertions";
 import { Duration } from "aws-cdk-lib";
+import { Architecture } from "aws-cdk-lib/aws-lambda";
 import { CdkLess } from "../../src";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 
@@ -202,6 +203,140 @@ describe("CdkLess Integration Tests", () => {
     template.hasResourceProperties("AWS::Lambda::Permission", {
       Action: "lambda:InvokeFunction",
       Principal: "events.amazonaws.com"
+    });
+  });
+
+  test("Lambda with x86_64 architecture (default) is created correctly", () => {
+    const cdkless = new CdkLess({ appName: "x86-arch-app" });
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("x86-lambda")
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "x86-lambda-test",
+      Architectures: [Architecture.X86_64]
+    });
+  });
+
+  test("Lambda with ARM64 architecture is created correctly", () => {
+    const cdkless = new CdkLess({ appName: "arm-arch-app" });
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("arm-lambda")
+      .architecture(Architecture.ARM_64)
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "arm-lambda-test",
+      Architectures: ["arm64"]
+    });
+  });
+
+  test("Default Lambda options are applied correctly to all functions", () => {
+    const cdkless = new CdkLess({ 
+      appName: "default-options-app",
+      settings: {
+        defaultLambdaOptions: {
+          memorySize: 512,
+          timeout: Duration.seconds(30),
+          architecture: Architecture.ARM_64,
+          environment: {
+            DEFAULT_ENV: "test-value"
+          }
+        }
+      }
+    });
+
+    // Create two Lambda functions that should inherit the default options
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("lambda-1")
+      .build();
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("lambda-2")
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    // Verify both functions have the default options
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "lambda-1-test",
+      MemorySize: 512,
+      Timeout: 30,
+      Architectures: ["arm64"],
+      Environment: {
+        Variables: {
+          DEFAULT_ENV: "test-value"
+        }
+      }
+    });
+
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "lambda-2-test",
+      MemorySize: 512,
+      Timeout: 30,
+      Architectures: ["arm64"],
+      Environment: {
+        Variables: {
+          DEFAULT_ENV: "test-value"
+        }
+      }
+    });
+  });
+
+  test("Default Lambda options can be overridden at function level", () => {
+    const cdkless = new CdkLess({ 
+      appName: "override-defaults-app",
+      settings: {
+        defaultLambdaOptions: {
+          memorySize: 512,
+          timeout: Duration.seconds(30),
+          architecture: Architecture.ARM_64,
+          environment: {
+            DEFAULT_ENV: "test-value"
+          }
+        }
+      }
+    });
+
+    // Create a function that overrides some default options
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("override-lambda")
+      .memory(1024)  // Override default memory
+      .timeout(Duration.seconds(60))  // Override default timeout
+      .environment({  // Merge with default environment
+        CUSTOM_ENV: "custom-value"
+      })
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    // Verify the function has the overridden values while keeping other defaults
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "override-lambda-test",
+      MemorySize: 1024,  // Overridden value
+      Timeout: 60,  // Overridden value
+      Architectures: ["arm64"],  // Default value
+      Environment: {
+        Variables: {
+          DEFAULT_ENV: "test-value",  // Default value
+          CUSTOM_ENV: "custom-value"  // Added value
+        }
+      }
     });
   });
 });
