@@ -89,6 +89,45 @@ const customApp = new CdkLess({
     - Additional default tags can be specified here and will be merged with the `ProjectName` tag
     - These tags will be applied to both the stack and all resources
     - You can still add more tags later using `addStackTags()` or `addResourceTags()`
+  - `settings.defaultLambdaOptions`: (Default: {}) Default configuration options for all Lambda functions:
+    - `memorySize`: (number) Default memory size in MB
+    - `timeout`: (cdk.Duration) Default timeout duration
+    - `runtime`: (lambda.Runtime) Default runtime
+    - `architecture`: (lambda.Architecture) Default architecture (x86_64 or arm64)
+    - `environment`: ({ [key: string]: string }) Default environment variables
+    - `logRetention`: (logs.RetentionDays) Default log retention period
+    - These defaults can be overridden at the function level using the corresponding methods
+
+**Example with Default Lambda Options:**
+
+```typescript
+const app = new CdkLess({
+  appName: "user-services",
+  stage: "prod",
+  settings: {
+    defaultLambdaOptions: {
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(30),
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      environment: {
+        NODE_ENV: "production",
+        LOG_LEVEL: "info"
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK
+    }
+  }
+});
+
+// All Lambda functions will inherit these defaults
+app.lambda("src/handlers/users/get-users").get("/users");
+
+// You can still override defaults for specific functions
+app.lambda("src/handlers/image/process")
+  .post("/images/process")
+  .memory(1024)  // Override default memory
+  .timeout(cdk.Duration.minutes(5));  // Override default timeout
+```
 
 **Example with Default Tags:**
 
@@ -548,6 +587,26 @@ app
   .timeout(cdk.Duration.seconds(60));
 ```
 
+##### architecture(arch: lambda.Architecture): LambdaBuilder
+
+Sets the architecture for the Lambda function.
+
+**Parameters:**
+
+- `arch`: Architecture for the Lambda function (`x86_64` or `arm64`). The default is `x86_64`.
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
+
+```typescript
+// Set the architecture to ARM64 for better performance and cost
+app
+  .lambda("src/handlers/compute-intensive/process-data")
+  .post("/process-data")
+  .architecture(lambda.Architecture.ARM_64);
+```
+
 ##### addAuthorizer(authorizer: apigatewayv2.HttpRouteAuthorizer, scopes?: string[]): LambdaBuilder
 
 Adds an authorizer to all API endpoints for this Lambda.
@@ -659,6 +718,64 @@ if (api) {
 
 Here are more complete examples of configuring Lambda functions with CDKless:
 
+### Default Lambda Configuration
+
+CDKless allows you to set default configuration options for all Lambda functions in your stack using the `DefaultLambdaOptions` interface:
+
+```typescript
+interface DefaultLambdaOptions {
+  /** Default memory size in MB */
+  memorySize?: number;
+  /** Default timeout duration */
+  timeout?: cdk.Duration;
+  /** Default runtime */
+  runtime?: lambda.Runtime;
+  /** Default architecture (x86_64 or arm64) */
+  architecture?: lambda.Architecture;
+  /** Default environment variables */
+  environment?: { [key: string]: string };
+  /** Default log retention period */
+  logRetention?: logs.RetentionDays;
+}
+```
+
+You can set these defaults when creating your CDKless instance:
+
+```typescript
+import { CdkLess } from "cdkless";
+import * as cdk from "aws-cdk-lib";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as logs from "aws-cdk-lib/aws-logs";
+
+const app = new CdkLess({
+  appName: "my-service",
+  settings: {
+    defaultLambdaOptions: {
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(30),
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      environment: {
+        NODE_ENV: "production",
+        LOG_LEVEL: "info"
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK
+    }
+  }
+});
+
+// All Lambda functions will inherit these defaults
+app.lambda("src/handlers/users/get-users").get("/users");
+
+// You can still override defaults for specific functions
+app.lambda("src/handlers/image/process")
+  .post("/images/process")
+  .memory(1024)  // Override default memory
+  .timeout(cdk.Duration.minutes(5));  // Override default timeout
+```
+
+These default options will be applied to all Lambda functions in your stack unless explicitly overridden at the function level.
+
 ### Basic Lambda with API Endpoint
 
 ```typescript
@@ -690,6 +807,7 @@ app
     THUMBNAIL_SIZE: "200x200",
     API_KEY: "secret-api-key",
   })
+  .architecture(lambda.Architecture.ARM_64) // Example of setting architecture
   .addS3Permissions("arn:aws:s3:region:account:bucket/images-bucket");
 ```
 
@@ -1004,7 +1122,29 @@ import {
   PolicyOptions,
   LambdaInfo,
   TriggerInfo,
+  DefaultLambdaOptions,
 } from "cdkless";
+```
+
+#### DefaultLambdaOptions
+
+Default configuration options that can be applied to all Lambda functions in a stack.
+
+```typescript
+interface DefaultLambdaOptions {
+  /** Default memory size in MB */
+  memorySize?: number;
+  /** Default timeout duration */
+  timeout?: cdk.Duration;
+  /** Default runtime */
+  runtime?: lambda.Runtime;
+  /** Default architecture (x86_64 or arm64) */
+  architecture?: lambda.Architecture;
+  /** Default environment variables */
+  environment?: { [key: string]: string };
+  /** Default log retention period */
+  logRetention?: logs.RetentionDays;
+}
 ```
 
 #### LambdaBuilderProps

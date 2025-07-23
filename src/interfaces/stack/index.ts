@@ -1,4 +1,5 @@
 import { BundlingOptions } from "aws-cdk-lib/aws-lambda-nodejs";
+import { DefaultLambdaOptions } from "../lambda/lambda-defaults";
 import { AwsResourceTags } from "../tags";
 
 export interface IStackSettings {
@@ -17,6 +18,12 @@ export interface IStackSettings {
    * Default bundling options for all Lambda functions in the stack
    */
   defaultBundlingOptions?: BundlingOptions;
+
+  /**
+   * Default Lambda function configuration options that will be applied to all Lambda functions
+   * in the stack unless overridden at the function level.
+   */
+  defaultLambdaOptions?: DefaultLambdaOptions;
 
   /**
    * Default tags that will be applied to both the stack and all resources.

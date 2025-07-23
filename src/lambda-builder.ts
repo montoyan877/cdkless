@@ -89,6 +89,7 @@ export class LambdaBuilder {
   private logRetentionDays: logs.RetentionDays = logs.RetentionDays.ONE_MONTH;
   private handlerPath: string;
   private bundlingOptions?: BundlingOptions;
+  private architectureValue: lambda.Architecture = lambda.Architecture.X86_64;
 
   constructor(props: LambdaBuilderProps) {
     this.scope = props.scope;
@@ -103,6 +104,9 @@ export class LambdaBuilder {
 
     // Store bundling options if provided
     this.bundlingOptions = props.bundling;
+
+    // Apply default Lambda options
+    this.applyDefaultLambdaOptions();
 
     // Create a proxy to handle automatic building
     return new Proxy(this, {
@@ -252,6 +256,7 @@ export class LambdaBuilder {
           vpcSubnets: subnets ? { subnets } : undefined,
           securityGroups,
           layers,
+          architecture: this.architectureValue,
         }
       );
     } else {
@@ -281,6 +286,7 @@ export class LambdaBuilder {
           vpcSubnets: subnets ? { subnets } : undefined,
           securityGroups,
           layers,
+          architecture: this.architectureValue,
         }
       );
     }
@@ -362,6 +368,26 @@ export class LambdaBuilder {
       ...this.environmentVars,
       ...variables,
     };
+    return this;
+  }
+
+  /**
+   * Sets the architecture for the Lambda function
+   * @param arch Architecture for the Lambda function (x86_64 or arm64)
+   * @returns The LambdaBuilder instance for method chaining
+   * 
+   * @example
+   * // Set to ARM64 architecture
+   * app.lambda("src/handlers/process-data")
+   *   .architecture(lambda.Architecture.ARM_64);
+   * 
+   * @example
+   * // Set to x86_64 architecture (default)
+   * app.lambda("src/handlers/process-data")
+   *   .architecture(lambda.Architecture.X86_64);
+   */
+  public architecture(arch: lambda.Architecture): LambdaBuilder {
+    this.architectureValue = arch;
     return this;
   }
 
@@ -1054,5 +1080,23 @@ export class LambdaBuilder {
     return camelCaseStr
       .replace(/([a-z])([A-Z])/g, "$1-$2") // Insert hyphen before uppercase letters
       .toLowerCase(); // Convert entire string to lowercase
+  }
+
+  private applyDefaultLambdaOptions(): void {
+    const defaultSettings = CdkLess.getDefaultSettings();
+    const defaultLambdaOptions = defaultSettings.defaultLambdaOptions || {};
+
+    this.runtimeValue = defaultLambdaOptions.runtime || this.runtimeValue;
+    this.memorySize = defaultLambdaOptions.memorySize || this.memorySize;
+    this.timeoutDuration = defaultLambdaOptions.timeout || this.timeoutDuration;
+    this.logRetentionDays = defaultLambdaOptions.logRetention || this.logRetentionDays;
+    this.architectureValue = defaultLambdaOptions.architecture || this.architectureValue;
+
+    if (defaultLambdaOptions.environment) {
+      this.environmentVars = {
+        ...this.environmentVars,
+        ...defaultLambdaOptions.environment,
+      };
+    }
   }
 }
