@@ -22,4 +22,14 @@ export interface PolicyOptions {
   includeSubResources?: boolean;
   /** Effect.ALLOW by default */
   effect?: cdk.aws_iam.Effect;
+}
+
+/**
+ * Configuration for attaching an existing IAM role to a Lambda function
+ */
+export interface IamRoleConfig {
+  /** Existing IAM role to attach */
+  role?: cdk.aws_iam.IRole;
+  /** ARN of an existing IAM role to attach */
+  roleArn?: string;
 } 

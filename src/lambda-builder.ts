@@ -37,6 +37,7 @@ import {
   SMKConfig,
   DynamoStreamsConfig,
   DynamoStreamsOptions,
+  IamRoleConfig,
 } from "./interfaces/lambda";
 import {
   EventSourceMappingOptions,
@@ -70,6 +71,7 @@ export class LambdaBuilder {
   private resourceTags: AwsResourceTags = {};
   private vpcConfig?: IVpcConfig;
   private layers: lambda.ILayerVersion[] = [];
+  private iamRole?: iam.IRole;
 
   // Store configurations for later application
   private snsConfigs: SnsConfig[] = [];
@@ -257,6 +259,7 @@ export class LambdaBuilder {
           securityGroups,
           layers,
           architecture: this.architectureValue,
+          role: this.iamRole,
         }
       );
     } else {
@@ -272,6 +275,7 @@ export class LambdaBuilder {
           memorySize: this.memorySize,
           timeout: this.timeoutDuration,
           handler: `${handlerFile}.handler`,
+          role: this.iamRole,
           code: lambda.Code.fromAsset(handlerPath, {
             exclude: [
               "*",
@@ -1059,6 +1063,32 @@ export class LambdaBuilder {
    */
   public addVpcConfig(vpcConfig: IVpcConfig): LambdaBuilder {
     this.vpcConfig = vpcConfig;
+    return this;
+  }
+
+  /**
+   * Attach an existing IAM role to the Lambda function
+   * @param config Configuration for attaching an existing IAM role
+   * @returns The LambdaBuilder instance for method chaining
+   * @throws Error if neither role nor roleArn is provided
+   */
+  public addRole(config: IamRoleConfig): LambdaBuilder {
+    if (!config.role && !config.roleArn) {
+      throw new Error('Either role or roleArn must be provided to addRole');
+    }
+
+    // If an existing role is provided, use it directly
+    if (config.role) {
+      this.iamRole = config.role;
+      return this;
+    }
+
+    // If a role ARN is provided, import the existing role
+    this.iamRole = iam.Role.fromRoleArn(
+      this.scope,
+      `${this.resourceName}-imported-role`,
+      config.roleArn!
+    );
     return this;
   }
 
