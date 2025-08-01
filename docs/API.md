@@ -525,6 +525,54 @@ app
   .addPolicy("arn:aws:sns:us-east-1:123456789012:mi-topic", ["SNS:Publish"]);
 ```
 
+##### addRole(options: RoleOptions): LambdaBuilder
+
+Adds a pre-existing IAM role to the Lambda function, overriding the default execution role.
+
+**Parameters:**
+
+- `options`: Role configuration options containing either a role construct or role ARN
+
+**Returns:** The LambdaBuilder instance for method chaining
+
+**Example:**
+
+```typescript
+// Method 1: Using role ARN
+app
+  .lambda("src/handlers/admin/dashboard")
+  .get("/admin/dashboard")
+  .addRole({
+    roleArn: "arn:aws:iam::123456789012:role/my-existing-lambda-role"
+  });
+
+// Method 2: Using an IRole construct
+import * as iam from "aws-cdk-lib/aws-iam";
+
+const existingRole = iam.Role.fromRoleArn(
+  app,
+  "ImportedRole",
+  "arn:aws:iam::123456789012:role/another-existing-role"
+);
+
+app
+  .lambda("src/handlers/orders/process")
+  .post("/orders")
+  .addRole({
+    role: existingRole
+  });
+```
+
+**Key Points:**
+
+- **Optional Feature**: You only need to use `.addRole()` if you want to use a specific, pre-existing role. If you don't call it, a default role will be created and managed automatically.
+- **Role Must Exist**: The role you specify must already exist in your AWS account. CDKless does not create new roles with this method.
+- **Permissions**: Ensure the role you provide has the necessary permissions. At a minimum, it needs the `AWSLambdaBasicExecutionRole` managed policy (or equivalent permissions) to allow the function to write logs.
+
+**Default Behavior:**
+
+By default, CDKless automatically creates a basic execution role for each Lambda function. This role grants permissions to write logs to Amazon CloudWatch, which is sufficient for many use cases.
+
 #### Configuration
 
 ##### environment(env: Record<string, string>): LambdaBuilder
@@ -1106,6 +1154,37 @@ app
   .addPolicy("arn:aws:sns:us-east-1:123456789012:mi-topic", ["SNS:Publish"]);
 ```
 
+### Custom IAM Role
+
+```typescript
+// Using a pre-existing IAM role instead of the default role
+app
+  .lambda("src/handlers/admin/secure-operation")
+  .post("/admin/secure")
+  .addRole({
+    roleArn: "arn:aws:iam::123456789012:role/high-privilege-lambda-role"
+  })
+  .addTablePermissions("arn:aws:dynamodb:region:account:table/sensitive-data");
+
+// Combining custom role with additional policies
+import * as iam from "aws-cdk-lib/aws-iam";
+
+const customRole = iam.Role.fromRoleArn(
+  app,
+  "CustomExecutionRole",
+  "arn:aws:iam::123456789012:role/my-custom-lambda-role"
+);
+
+app
+  .lambda("src/handlers/reports/generate")
+  .get("/reports/generate")
+  .addRole({ role: customRole })
+  .addPolicy("arn:aws:s3:region:account:bucket/reports-bucket", [
+    "s3:GetObject",
+    "s3:PutObject"
+  ]);
+```
+
 ## Interfaces Reference
 
 CDKless has a well-organized set of TypeScript interfaces that you can use when extending the library or creating advanced configurations.
@@ -1119,6 +1198,7 @@ import {
   SqsOptions,
   S3Options,
   EventBridgeRuleOptions,
+  RoleOptions,
   PolicyOptions,
   LambdaInfo,
   TriggerInfo,
@@ -1207,6 +1287,19 @@ interface EventBridgeRuleOptions {
   description?: string;
   enabled?: boolean;
   ruleName?: string;
+}
+```
+
+#### RoleOptions
+
+Options for specifying a pre-existing IAM role for Lambda functions.
+
+```typescript
+interface RoleOptions {
+  /** An existing IAM role construct */
+  role?: iam.IRole;
+  /** The ARN of an existing IAM role to import and use */
+  roleArn?: string;
 }
 ```
 
