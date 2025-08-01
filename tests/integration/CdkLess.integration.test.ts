@@ -1,6 +1,7 @@
-import { Template } from "aws-cdk-lib/assertions";
+import { Template, Match } from "aws-cdk-lib/assertions";
 import { Duration } from "aws-cdk-lib";
 import { Architecture } from "aws-cdk-lib/aws-lambda";
+import { Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { CdkLess } from "../../src";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 
@@ -45,7 +46,7 @@ describe("CdkLess Integration Tests", () => {
 
     const stack = cdkless.getStack();
     const template = Template.fromStack(stack);
-    console.log(template.toJSON());
+
     template.resourceCountIs("AWS::Lambda::Function", 1);
     template.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
 
@@ -338,5 +339,99 @@ describe("CdkLess Integration Tests", () => {
         }
       }
     });
+  });
+
+  test("Lambda with existing role ARN is created correctly", () => {
+    const cdkless = new CdkLess({ appName: "role-arn-app" });
+    const roleArn = "arn:aws:iam::123456789012:role/existing-role";
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("role-arn-lambda")
+      .addRole({ roleArn })
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "role-arn-lambda-test",
+      Role: roleArn,
+    });
+  });
+
+  test("Lambda with existing role construct is created correctly", () => {
+    const cdkless = new CdkLess({ appName: "role-construct-app" });
+    const stack = cdkless.getStack();
+    const role = new Role(stack, "MyTestRole", {
+      assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
+    });
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("role-construct-lambda")
+      .addRole({ role })
+      .build();
+
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties(
+      "AWS::Lambda::Function",
+      Match.objectLike({
+        FunctionName: "role-construct-lambda-test",
+        Role: {
+          "Fn::GetAtt": [Match.stringLikeRegexp("MyTestRole*"), "Arn"],
+        },
+      })
+    );
+  });
+
+  test("addRole throws error if no role or roleArn is provided", () => {
+    const cdkless = new CdkLess({ appName: "invalid-role-app" });
+
+    expect(() => {
+      cdkless.lambda("tests/handlers/test-handler").addRole({});
+    }).toThrow("Either role or roleArn must be provided to addRole");
+  });
+
+  test("Lambda without addRole creates a default role", () => {
+    const cdkless = new CdkLess({ appName: "default-role-app" });
+
+    cdkless
+      .lambda("tests/handlers/test-handler")
+      .name("default-role-lambda")
+      .build();
+
+    const stack = cdkless.getStack();
+    const template = Template.fromStack(stack);
+
+    // Check that a role is created for the function
+    template.hasResourceProperties("AWS::IAM::Role", {
+      AssumeRolePolicyDocument: {
+        Statement: [
+          {
+            Action: "sts:AssumeRole",
+            Effect: "Allow",
+            Principal: {
+              Service: "lambda.amazonaws.com",
+            },
+          },
+        ],
+      },
+    });
+
+    // Check that the function uses the created role
+    template.hasResourceProperties(
+      "AWS::Lambda::Function",
+      Match.objectLike({
+        FunctionName: "default-role-lambda-test",
+        Role: {
+          "Fn::GetAtt": [
+            Match.stringLikeRegexp("defaultrolelambdafunctionServiceRole*"),
+            "Arn"
+          ],
+        },
+      })
+    );
   });
 });

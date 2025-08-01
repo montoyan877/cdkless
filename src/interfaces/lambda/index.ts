@@ -2,3 +2,4 @@
 export * from './lambda-props';
 export * from './lambda-options';
 export * from './config-interfaces';
+export * from './lambda-vpc';

@@ -622,6 +622,8 @@ This ensures that:
 
 Grant your Lambda functions access to AWS resources with a simple, chainable API:
 
+### Individual Permissions
+
 ```typescript
 // Add Grant DynamoDB table permissions
 app
@@ -639,6 +641,49 @@ app
   ])
   .addPolicy("arn:aws:sns:us-east-1:123456789012:mi-topic", ["SNS:Publish"]);
 ```
+
+### Adding an IAM Role (Optional)
+
+By default, CdkLess automatically creates a basic execution role for each Lambda function. This role grants permissions to write logs to Amazon CloudWatch. For many use cases, this is sufficient.
+
+However, if you need to grant your function more specific permissions, you can add a pre-existing IAM role using the `.addRole()` method. This overrides the default behavior and gives you full control over the function's permissions.
+
+You can add an existing IAM role in two ways:
+
+```typescript
+// 1. By ARN
+app
+  .lambda("src/handlers/admin/dashboard")
+  .get("/admin/dashboard")
+  .addRole({
+    roleArn: "arn:aws:iam::123456789012:role/my-existing-lambda-role"
+  });
+
+// 2. By providing an IRole construct
+const existingRole = iam.Role.fromRoleArn(
+  this,
+  "ImportedRole",
+  "arn:aws:iam::123456789012:role/another-existing-role"
+);
+
+app
+  .lambda("src/handlers/orders/process")
+  .post("/orders")
+  .addRole({
+    role: existingRole
+  });
+```
+
+**Key Points:**
+
+- **It's Optional**: You only need to use `.addRole()` if you want to use a specific, pre-existing role. If you don't call it, a default role will be created and managed for you.
+- **Role Must Exist**: The role you specify must already exist in your AWS account. CdkLess does not create new roles with this method.
+- **Permissions**: Ensure the role you provide has the necessary permissions. At a minimum, it needs the `AWSLambdaBasicExecutionRole` managed policy (or equivalent permissions) to allow the function to write logs.
+
+The `addRole` method accepts:
+
+- `role`: An existing IAM role construct (`iam.IRole`).
+- `roleArn`: The ARN of an existing IAM role to import and use.
 
 ## ✏️ Naming Lambda Functions
 
