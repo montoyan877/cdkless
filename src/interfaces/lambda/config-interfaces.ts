@@ -104,6 +104,56 @@ export interface SMKConfig {
   consumerGroupId?: string;
   /** Starting position date format ISO String */
   startingPositionDate?: string;
+  
+  // ===== ADVANCED OPTIONS =====
+  
+  /**
+   * Destination configuration for failed records.
+   * Supports SQS queues, SNS topics, or S3 buckets as Dead Letter Queue.
+   * 
+   * CloudFormation will validate the ARN at deployment time.
+   * 
+   * Examples:
+   * ```typescript
+   * // SQS Queue (literal ARN)
+   * onFailure: {
+   *   destination: 'arn:aws:sqs:us-east-1:123456789012:my-dlq',
+   *   destinationType: 'sqs'
+   * }
+   * 
+   * // SQS Queue (imported from CloudFormation)
+   * onFailure: {
+   *   destination: Fn.importValue('MyDLQArn'),
+   *   destinationType: 'sqs'
+   * }
+   * 
+   * // SNS Topic
+   * onFailure: {
+   *   destination: 'arn:aws:sns:us-east-1:123456789012:my-topic',
+   *   destinationType: 'sns'
+   * }
+   * 
+   * // S3 Bucket
+   * onFailure: {
+   *   destination: 'arn:aws:s3:::my-failed-records-bucket',
+   *   destinationType: 's3'
+   * }
+   * ```
+   * 
+   * @see https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html#invocation-async-destinations
+   */
+  onFailure?: {
+    /**
+     * ARN of the destination resource.
+     * Can be a literal string or CloudFormation token (Fn.importValue, Ref, etc.)
+     */
+    destination: string;
+    
+    /**
+     * Type of the destination resource: 'sqs', 'sns', or 's3'
+     */
+    destinationType: 'sqs' | 'sns' | 's3';
+  };
 }
 
 /**

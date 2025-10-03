@@ -313,7 +313,6 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
   - `SASL_PLAIN_AUTH`: SASL/PLAIN authentication
   - `BASIC_AUTH`: Basic authentication
   - `CLIENT_CERTIFICATE_TLS_AUTH`: TLS certificate authentication
-  - `OAUTHBEARER_AUTH`: OAuth Bearer authentication
 - `batchSize`: Number of records to process in each batch (default: 10)
 - `maximumBatchingWindow`: Maximum time to wait for records in seconds (default: 1)
 - `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
@@ -323,6 +322,50 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
 - `startingPositionDate`: ISO String date for AT_TIMESTAMP starting position (format: YYYY-MM-DDTHH:mm:ss.sssZ)
 - `enabled`: Whether the trigger is enabled (default: true)
 - `consumerGroupId`: Custom consumer group ID (default: auto-generated)
+- `onFailure`: Dead Letter Queue configuration for failed records. Supports SQS queues, SNS topics, or S3 buckets
+  - `destination`: ARN of the DLQ resource (can be a literal string or CloudFormation token like `Fn.importValue()`)
+  - `destinationType`: Type of destination - **required**, must be `'sqs'`, `'sns'`, or `'s3'`
+
+**Examples with Dead Letter Queue:**
+
+```typescript
+// With SQS DLQ
+app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
+  bootstrapServers: ["kafka-broker-1:9092", "kafka-broker-2:9092"],
+  topic: "orders-topic",
+  secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/kafka-creds",
+  batchSize: 100,
+  maximumBatchingWindow: 10,
+  onFailure: {
+    destination: "arn:aws:sqs:us-east-1:123456789012:kafka-dlq",
+    destinationType: 'sqs'
+  }
+});
+
+// With CloudFormation imported ARN
+const dlqArn = Fn.importValue(`KafkaDLQ-Arn-${stage}`);
+
+app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
+  bootstrapServers: ["kafka-broker-1:9092"],
+  topic: "orders-topic",
+  secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/kafka-creds",
+  onFailure: {
+    destination: dlqArn,
+    destinationType: 'sqs'  // Required when using CloudFormation tokens
+  }
+});
+
+// With S3 bucket
+app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
+  bootstrapServers: ["kafka-broker-1:9092"],
+  topic: "orders-topic",
+  secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/kafka-creds",
+  onFailure: {
+    destination: "arn:aws:s3:::my-failed-records-bucket",
+    destinationType: 's3'
+  }
+});
+```
 
 ##### DynamoDB Streams Trigger Configuration
 
@@ -810,7 +853,36 @@ CdkLess handles the CDK synthesis process automatically when your application ru
 
 ## 🙏 Contributing
 
-We welcome contributions! Please feel free to submit a Pull Request.
+We welcome contributions! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
+
+### For Contributors and Developers
+
+If you want to contribute to CdkLess or test local changes before publishing, please see our [Development Guide](DEVELOPMENT.md).
+
+The development guide covers:
+
+- Setting up your development environment
+- Testing local changes with the `test-local-changes.ps1` script
+- Development workflow and best practices
+- Building and publishing
+
+### Quick Start for Testing Local Changes
+
+```powershell
+# Windows users can use our automated script
+.\test-local-changes.ps1 "C:\path\to\your\test\project"
+```
+
+For detailed instructions and cross-platform methods, see [DEVELOPMENT.md](DEVELOPMENT.md).
+
+### Submitting Changes
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and test locally
+4. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ## 📝 License
 
