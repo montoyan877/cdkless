@@ -1095,6 +1095,47 @@ app
     startingPosition: StartingPosition.AT_TIMESTAMP,
     startingPositionDate: "2024-01-01T00:00:00.000Z",
   });
+
+// Self-Managed Kafka trigger with SQS Dead Letter Queue
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addSMKTrigger({
+    bootstrapServers: ["kafka-broker-1:9092", "kafka-broker-2:9092"],
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+    batchSize: 100,
+    maximumBatchingWindow: 10,
+    onFailure: {
+      destination: "arn:aws:sqs:us-east-1:123456789012:kafka-dlq",
+      destinationType: 'sqs'
+    }
+  });
+
+// Self-Managed Kafka trigger with S3 bucket for failed records
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addSMKTrigger({
+    bootstrapServers: ["kafka-broker-1:9092"],
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+    onFailure: {
+      destination: "arn:aws:s3:::my-failed-kafka-records-bucket",
+      destinationType: 's3'
+    }
+  });
+
+// Self-Managed Kafka trigger with CloudFormation imported DLQ
+app
+  .lambda("src/handlers/orders/process-kafka-order")
+  .addSMKTrigger({
+    bootstrapServers: ["kafka-broker-1:9092"],
+    topic: "orders-topic",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+    onFailure: {
+      destination: Fn.importValue('KafkaDLQ-Arn-prod'),
+      destinationType: 'sqs'  // Required when using CloudFormation tokens
+    }
+  });
 ```
 
 ### SQS Queue

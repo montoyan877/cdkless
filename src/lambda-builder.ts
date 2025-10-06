@@ -574,6 +574,9 @@ export class LambdaBuilder {
    * @param config.startingPositionDate ISO String date for AT_TIMESTAMP starting position (format: YYYY-MM-DDTHH:mm:ss.sssZ)
    * @param config.enabled Whether the trigger is enabled (default: true)
    * @param config.consumerGroupId Custom consumer group ID (default: auto-generated)
+   * @param config.onFailure Dead Letter Queue configuration for failed records
+   * @param config.onFailure.destination ARN of the DLQ (SQS, SNS, or S3) - can be literal or CloudFormation token
+   * @param config.onFailure.destinationType Type of destination ('sqs', 'sns', 's3') - always required
    * 
    * @returns The LambdaBuilder instance for method chaining
    * 
@@ -598,6 +601,47 @@ export class LambdaBuilder {
    *     maximumBatchingWindow: 5,
    *     startingPosition: StartingPosition.TRIM_HORIZON,
    *     consumerGroupId: "orders-consumer-group"
+   *   });
+   * 
+   * @example
+   * Self-Managed Kafka trigger with SQS Dead Letter Queue
+   * app.lambda("src/handlers/orders/process-kafka-order")
+   *   .addSMKTrigger({
+   *     bootstrapServers: ["kafka-broker-1:9092", "kafka-broker-2:9092"],
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+   *     batchSize: 100,
+   *     maximumBatchingWindow: 10,
+   *     onFailure: {
+   *       destination: "arn:aws:sqs:us-east-1:123456789012:kafka-dlq",
+   *       destinationType: 'sqs'
+   *     }
+   *   });
+   * 
+   * @example
+   * Self-Managed Kafka trigger with S3 bucket for failed records
+   * app.lambda("src/handlers/orders/process-kafka-order")
+   *   .addSMKTrigger({
+   *     bootstrapServers: ["kafka-broker-1:9092"],
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+   *     onFailure: {
+   *       destination: "arn:aws:s3:::my-failed-kafka-records-bucket",
+   *       destinationType: 's3'
+   *     }
+   *   });
+   * 
+   * @example
+   * Self-Managed Kafka trigger with CloudFormation imported DLQ (SQS)
+   * app.lambda("src/handlers/orders/process-kafka-order")
+   *   .addSMKTrigger({
+   *     bootstrapServers: ["kafka-broker-1:9092"],
+   *     topic: "orders-topic",
+   *     secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret/your-secret-name",
+   *     onFailure: {
+   *       destination: Fn.importValue('JournalProcessorDLQ-Arn-prod'),
+   *       destinationType: 'sqs'  // Required when using CloudFormation tokens
+   *     }
    *   });
    * 
    * @example
@@ -921,14 +965,53 @@ export class LambdaBuilder {
   }
 
   private applySMKTriggers(): void {
-    for (const config of this.smkConfigs) {
+    this.smkConfigs.forEach((config, index) => {
       const secret = secretsmanager.Secret.fromSecretCompleteArn(
         this.scope,
-        `${this.resourceName}-kafka-secret`,
+        `${this.resourceName}-kafka-secret-${index}`,
         config.secretArn
       );
 
+      // Prepare onFailure destination if provided
+      let onFailureDestination;
+      if (config.onFailure?.destination) {
+        const destinationArn = config.onFailure.destination;
+        const destinationType = config.onFailure.destinationType;
+        
+        // Create the appropriate destination based on type
+        // CloudFormation will validate the ARN at deployment time
+        switch (destinationType) {
+          case 'sqs':
+            const queue = sqs.Queue.fromQueueArn(
+              this.scope,
+              `${this.resourceName}-smk-dlq-${index}`,
+              destinationArn
+            );
+            onFailureDestination = new lambdaEventSources.SqsDlq(queue);
+            break;
+          
+          case 'sns':
+            const topic = sns.Topic.fromTopicArn(
+              this.scope,
+              `${this.resourceName}-smk-dlq-${index}`,
+              destinationArn
+            );
+            onFailureDestination = new lambdaEventSources.SnsDlq(topic);
+            break;
+          
+          case 's3':
+            const bucket = s3.Bucket.fromBucketArn(
+              this.scope,
+              `${this.resourceName}-smk-dlq-${index}`,
+              destinationArn
+            );
+            onFailureDestination = new lambdaEventSources.S3OnFailureDestination(bucket);
+            break;
+        }
+      }
+
       const eventSource = new SelfManagedKafkaEventSource({
+        // Base configuration
         bootstrapServers: config.bootstrapServers,
         topic: config.topic,
         authenticationMethod:
@@ -945,10 +1028,13 @@ export class LambdaBuilder {
         consumerGroupId:
           config?.consumerGroupId ||
           `lambda-${this.resourceName}-consumer-group`,
+        
+        // Advanced options
+        onFailure: onFailureDestination,
       });
 
       this.lambda.addEventSource(eventSource);
-    }
+    });
   }
 
   /**
