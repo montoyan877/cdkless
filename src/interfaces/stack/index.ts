@@ -1,6 +1,7 @@
 import { BundlingOptions } from "aws-cdk-lib/aws-lambda-nodejs";
 import { DefaultLambdaOptions } from "../lambda/lambda-defaults";
 import { AwsResourceTags } from "../tags";
+import { DefaultApiOptions } from "../api/api-defaults";
 
 export interface IStackSettings {
   /**
@@ -39,6 +40,14 @@ export interface IStackSettings {
    * @default undefined (uses automatic ProjectName tag)
    */
   defaultTags?: AwsResourceTags;
+
+  /**
+   * Default API Gateway configuration options.
+   * This allows you to configure default settings for the shared API Gateway.
+   * 
+   * @default undefined
+   */
+  defaultApiOptions?: DefaultApiOptions;
 }
 
 /**

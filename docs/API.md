@@ -97,6 +97,11 @@ const customApp = new CdkLess({
     - `environment`: ({ [key: string]: string }) Default environment variables
     - `logRetention`: (logs.RetentionDays) Default log retention period
     - These defaults can be overridden at the function level using the corresponding methods
+  - `settings.defaultApiOptions`: (Default: undefined) Default API Gateway configuration options:
+    - `cors`: Custom CORS configuration for API Gateway
+      - If not provided, default CORS is used (allow all origins)
+      - Set to `false` to disable CORS entirely
+      - Provide a `CorsPreflightOptions` object for custom CORS settings
 
 **Example with Default Lambda Options:**
 
@@ -153,6 +158,36 @@ const app = new CdkLess({
 // You can still add more tags later
 app.addStackTags({
   Critical: "true"
+});
+```
+
+**Example with Custom API Options (CORS):**
+
+```typescript
+import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
+
+const app = new CdkLess({
+  appName: "user-services",
+  settings: {
+    defaultApiOptions: {
+      cors: {
+        allowOrigins: ["https://example.com", "https://app.example.com"],
+        allowMethods: [apigatewayv2.CorsHttpMethod.GET, apigatewayv2.CorsHttpMethod.POST],
+        allowHeaders: ["Content-Type", "Authorization"],
+        maxAge: cdk.Duration.hours(1)
+      }
+    }
+  }
+});
+
+// To disable CORS entirely:
+const appNoCors = new CdkLess({
+  appName: "user-services",
+  settings: {
+    defaultApiOptions: {
+      cors: false
+    }
+  }
 });
 ```
 
