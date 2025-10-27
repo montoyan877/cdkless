@@ -747,13 +747,17 @@ export class LambdaBuilder {
     const apiName =
       this.stage.length > 0 ? `${appName}-api-${this.stage}` : `${appName}-api`;
 
+    const defaultSettings = CdkLess.getDefaultSettings();
+    const corsConfig = defaultSettings.defaultApiOptions?.cors;
+
     const apiBuilder = new ApiBuilder({
       scope: this.scope,
       id: apiName,
       apiName: apiName,
       description: `Shared API created automatically - ${this.stage}`,
       stageName: this.stage,
-      useDefaultCors: true,
+      useDefaultCors: corsConfig === undefined ? true : undefined,
+      corsConfig: corsConfig,
     });
 
     sharedApi = apiBuilder;

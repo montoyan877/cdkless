@@ -16,7 +16,12 @@ export class ApiBuilder {
       disableExecuteApiEndpoint: props.disableExecuteApiEndpoint,
     };
 
-    if (props.useDefaultCors !== false) {
+    if (props.corsConfig !== undefined && props.corsConfig !== false) {
+      apiConfig = {
+        ...apiConfig,
+        corsPreflight: props.corsConfig,
+      };
+    } else if (props.useDefaultCors !== false) {
       apiConfig = {
         ...apiConfig,
         corsPreflight: {

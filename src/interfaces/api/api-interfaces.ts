@@ -12,6 +12,7 @@ export interface ApiBuilderProps {
   description?: string;
   stageName?: string;
   useDefaultCors?: boolean;
+  corsConfig?: apigatewayv2.CorsPreflightOptions | false;
   binaryMediaTypes?: string[];
   disableExecuteApiEndpoint?: boolean;
 }
