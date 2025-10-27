@@ -203,4 +203,8 @@ export class CdkLess extends cdk.Stack implements IStack {
   public getStack() {
     return this;
   }
+
+  public getScope() {
+    return this.app;
+  }
 }
