@@ -1,6 +1,8 @@
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as cdk from "aws-cdk-lib";
 import * as logs from "aws-cdk-lib/aws-logs";
+import { AwsResourceTags } from "../tags";
+import { IVpcConfig } from "./lambda-vpc";
 
 /**
  * Default configuration options for Lambda functions
@@ -18,4 +20,6 @@ export interface DefaultLambdaOptions {
   environment?: { [key: string]: string };
   /** Default log retention period */
   logRetention?: logs.RetentionDays;
+  /** Default vpc config */
+  vpc?: IVpcConfig;
 }

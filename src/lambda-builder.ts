@@ -49,7 +49,6 @@ import { AwsResourceTags } from "./interfaces/tags";
 import { IStack } from "./interfaces/stack";
 import { IVpcConfig } from "./interfaces/lambda/lambda-vpc";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import { Table } from "aws-cdk-lib/aws-dynamodb";
 import { CdkLess } from "./base-stack";
 
 let sharedApi: ApiBuilder;
@@ -1211,6 +1210,7 @@ export class LambdaBuilder {
     this.timeoutDuration = defaultLambdaOptions.timeout || this.timeoutDuration;
     this.logRetentionDays = defaultLambdaOptions.logRetention || this.logRetentionDays;
     this.architectureValue = defaultLambdaOptions.architecture || this.architectureValue;
+    this.vpcConfig = defaultLambdaOptions.vpc || this.vpcConfig;
 
     if (defaultLambdaOptions.environment) {
       this.environmentVars = {
