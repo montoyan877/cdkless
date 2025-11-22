@@ -1,7 +1,6 @@
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as cdk from "aws-cdk-lib";
 import * as logs from "aws-cdk-lib/aws-logs";
-import { AwsResourceTags } from "../tags";
 import { IVpcConfig } from "./lambda-vpc";
 
 /**
