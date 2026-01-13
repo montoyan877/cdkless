@@ -324,7 +324,7 @@ Adds a GET endpoint to the function.
 
 **Parameters:**
 
-- `path`: API endpoint path (can include path parameters like `:id`)
+- `path`: API endpoint path (can include path parameters like `{id}`)
 
 **Returns:** The LambdaBuilder instance for method chaining
 
@@ -335,7 +335,7 @@ Adds a GET endpoint to the function.
 app.lambda("src/handlers/users/get-users").get("/users");
 
 // GET endpoint with path parameter
-app.lambda("src/handlers/users/get-user-by-id").get("/users/:id");
+app.lambda("src/handlers/users/get-user-by-id").get("/users/{id}");
 ```
 
 ##### post(path: string): LambdaBuilder
@@ -361,7 +361,7 @@ Adds a PUT endpoint to the function.
 
 **Parameters:**
 
-- `path`: API endpoint path (can include path parameters like `:id`)
+- `path`: API endpoint path (can include path parameters like `{id}`)
 
 **Returns:** The LambdaBuilder instance for method chaining
 
@@ -369,7 +369,7 @@ Adds a PUT endpoint to the function.
 
 ```typescript
 // Create a PUT endpoint for updating a user
-app.lambda("src/handlers/users/update-user").put("/users/:id");
+app.lambda("src/handlers/users/update-user").put("/users/{id}");
 ```
 
 ##### delete(path: string): LambdaBuilder
@@ -378,7 +378,7 @@ Adds a DELETE endpoint to the function.
 
 **Parameters:**
 
-- `path`: API endpoint path (can include path parameters like `:id`)
+- `path`: API endpoint path (can include path parameters like `{id}`)
 
 **Returns:** The LambdaBuilder instance for method chaining
 
@@ -386,7 +386,7 @@ Adds a DELETE endpoint to the function.
 
 ```typescript
 // Create a DELETE endpoint
-app.lambda("src/handlers/users/delete-user").delete("/users/:id");
+app.lambda("src/handlers/users/delete-user").delete("/users/{id}");
 ```
 
 ##### patch(path: string): LambdaBuilder
@@ -403,7 +403,7 @@ Adds a PATCH endpoint to the function.
 
 ```typescript
 // Create a PATCH endpoint for partial updates
-app.lambda("src/handlers/users/patch-user").patch("/users/:id");
+app.lambda("src/handlers/users/patch-user").patch("/users/{id}");
 ```
 
 #### Event Source Integrations
@@ -871,9 +871,9 @@ app.lambda("src/handlers/users/get-users").get("/users");
 const userLambda = app.lambda("src/handlers/users/user-operations");
 userLambda.get("/users");
 userLambda.post("/users");
-userLambda.get("/users/:id");
-userLambda.put("/users/:id");
-userLambda.delete("/users/:id");
+userLambda.get("/users/{id}");
+userLambda.put("/users/{id}");
+userLambda.delete("/users/{id}");
 ```
 
 ### Lambda with Advanced Configuration
@@ -923,7 +923,7 @@ app.setSharedLayer("../layers/shared-dependencies", {
 });
 
 // All subsequent Lambda functions will automatically include the shared layer
-app.lambda("src/handlers/users/get-user").get("/users/:id");
+app.lambda("src/handlers/users/get-user").get("/users/{id}");
 app.lambda("src/handlers/orders/create-order").post("/orders");
 ```
 
@@ -970,7 +970,7 @@ app
 
 app
   .lambda("src/handlers/users/upload-avatar")
-  .post("/users/:id/avatar")
+  .post("/users/{id}/avatar")
   .addLayers([databaseLayer, imageProcessingLayer]); // Both layers
 ```
 
@@ -984,9 +984,9 @@ Examples of API Gateway integration:
 // Define multiple endpoints with different HTTP methods
 app.lambda("src/handlers/users/get-users").get("/users");
 app.lambda("src/handlers/users/create-user").post("/users");
-app.lambda("src/handlers/users/get-user-by-id").get("/users/:id");
-app.lambda("src/handlers/users/update-user").put("/users/:id");
-app.lambda("src/handlers/users/delete-user").delete("/users/:id");
+app.lambda("src/handlers/users/get-user-by-id").get("/users/{id}");
+app.lambda("src/handlers/users/update-user").put("/users/{id}");
+app.lambda("src/handlers/users/delete-user").delete("/users/{id}");
 ```
 
 ### With Authorization
@@ -1211,8 +1211,8 @@ app
   .lambda("src/handlers/users/crud-operations")
   .get("/users")
   .post("/users")
-  .put("/users/:id")
-  .delete("/users/:id")
+  .put("/users/{id}")
+  .delete("/users/{id}")
   .addTablePermissions("arn:aws:dynamodb:region:account:table/users-table");
 ```
 

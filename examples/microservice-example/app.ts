@@ -18,7 +18,7 @@ app
 app
   .lambda("src/handlers/orders/get-order")
   .name("get-order-lambda")
-  .get("/orders/:id")
+  .get("/orders/{id}")
   .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table");
 
 app
@@ -52,5 +52,5 @@ app.lambda("src/handlers/admin/dashboard").get("/admin/dashboard");
 
 app
   .lambda("src/handlers/admin/update-order-status")
-  .put("/admin/orders/:id/status")
+  .put("/admin/orders/{id}/status")
   .addTablePermissions("arn:aws:dynamodb:region:account:table/orders-table");

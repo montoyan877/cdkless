@@ -120,16 +120,16 @@ Create HTTP API endpoints with a fluent interface:
 
 ```typescript
 // GET endpoint
-app.lambda("src/handlers/products/get-product").get("/products/:id");
+app.lambda("src/handlers/products/get-product").get("/products/{id}");
 
 // POST endpoint
 app.lambda("src/handlers/products/create-product").post("/products");
 
 // PUT endpoint
-app.lambda("src/handlers/products/update-product").put("/products/:id");
+app.lambda("src/handlers/products/update-product").put("/products/{id}");
 
 // DELETE endpoint
-app.lambda("src/handlers/products/delete-product").delete("/products/:id");
+app.lambda("src/handlers/products/delete-product").delete("/products/{id}");
 ```
 
 ### 🔐 API Authorization
@@ -523,7 +523,7 @@ app.setSharedLayer("../dist/layers/common-utilities", {
 });
 
 // All Lambda functions will automatically include the shared layer
-app.lambda("src/handlers/users/get-user").get("/users/:id");
+app.lambda("src/handlers/users/get-user").get("/users/{id}");
 app.lambda("src/handlers/orders/create-order").post("/orders");
 app.lambda("src/handlers/products/list-products").get("/products");
 ```
@@ -757,13 +757,13 @@ Each Lambda function should handle a specific task. For example:
 
 ```typescript
 // User service
-app.lambda("src/handlers/users/get-user").get("/users/:id");
+app.lambda("src/handlers/users/get-user").get("/users/{id}");
 app.lambda("src/handlers/users/create-user").post("/users");
-app.lambda("src/handlers/users/update-user").put("/users/:id");
-app.lambda("src/handlers/users/delete-user").delete("/users/:id");
+app.lambda("src/handlers/users/update-user").put("/users/{id}");
+app.lambda("src/handlers/users/delete-user").delete("/users/{id}");
 
 // Order service
-app.lambda("src/handlers/orders/get-order").get("/orders/:id");
+app.lambda("src/handlers/orders/get-order").get("/orders/{id}");
 app.lambda("src/handlers/orders/create-order").post("/orders");
 ```
 

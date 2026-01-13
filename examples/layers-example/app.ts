@@ -43,7 +43,7 @@ const imageProcessingLayer = new lambda.LayerVersion(
 app
   .lambda("src/handlers/users/get-user")
   .name("layers-example-get-user")
-  .get("/users/:id")
+  .get("/users/{id}")
   .addLayers([databaseLayer])
   .environment({
     TABLE_NAME: "users-table",
@@ -54,7 +54,7 @@ app
 app
   .lambda("src/handlers/users/upload-avatar")
   .name("layers-example-upload-avatar")
-  .post("/users/:id/avatar")
+  .post("/users/{id}/avatar")
   .addLayers([databaseLayer, imageProcessingLayer])
   .environment({
     TABLE_NAME: "users-table",
