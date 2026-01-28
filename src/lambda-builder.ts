@@ -52,6 +52,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import { CdkLess } from "./base-stack";
 
 let sharedApi: ApiBuilder;
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
 
 export class LambdaBuilder {
   private lambda: lambda.Function;
@@ -929,21 +930,70 @@ export class LambdaBuilder {
     });
   }
 
+  /**
+   * Applies all stored Amazon MSK (Managed Streaming for Apache Kafka) trigger configurations
+   * to the Lambda function. This method processes each MSK configuration and creates the
+   * corresponding event source with proper validation and error handling.
+   *
+   * For each configuration:
+   * - Validates the secret ARN format
+   * - Creates a Secrets Manager secret reference
+   * - Validates and converts timestamp if AT_TIMESTAMP starting position is used
+   * - Creates a ManagedKafkaEventSource with the specified properties
+   * - Adds the event source to the Lambda function
+   *
+   * @private
+   * @throws {Error} If secretArn is invalid or missing
+   * @throws {Error} If startingPositionDate is missing when startingPosition is AT_TIMESTAMP
+   * @throws {Error} If startingPositionDate format is invalid (must be ISO 8601: YYYY-MM-DDTHH:mm:ss.sssZ)
+   * @throws {Error} If startingPositionDate value is invalid or cannot be parsed
+   * @returns {void}
+   *
+   * @example
+   * // This method is called automatically during Lambda build process
+   * // when MSK triggers have been configured via addMSKTrigger()
+   */
   private applyMSKTriggers(): void {
-    for (const config of this.mskConfigs) {
+
+    this.mskConfigs.forEach((config, index) => {
+      if (!config.secretArn || !config.secretArn.startsWith('arn:aws:secretsmanager:')) {
+        throw new Error(
+          `Invalid secretArn for MSK config at index ${index}: ${config.secretArn}`
+        );
+      }
+
       const secret = secretsmanager.Secret.fromSecretCompleteArn(
         this.scope,
-        `${this.resourceName}-kafka-secret`,
+        `${this.resourceName}-kafka-secret-${index}`, // Usar índice para evitar colisiones
         config.secretArn
       );
+
+      const isAtTimestamp = config.startingPosition === StartingPosition.AT_TIMESTAMP;
+      if (isAtTimestamp && !config.startingPositionDate) {
+        throw new Error(
+          `startingPositionDate is required when startingPosition is AT_TIMESTAMP (config index: ${index})`
+        );
+      }
+
       let startingPositionTimestamp: number | undefined;
-      if (config.startingPositionDate && config.startingPosition === StartingPosition.AT_TIMESTAMP) {
-        // Validar que la fecha tenga formato ISO String
-        const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
-        if (!isoDateRegex.test(config.startingPositionDate)) {
-          throw new Error(`Invalid ISO date format for startingPositionDate: ${config.startingPositionDate}. Expected format: YYYY-MM-DDTHH:mm:ss.sssZ`);
+      if (isAtTimestamp && config.startingPositionDate) {
+        if (
+          typeof config.startingPositionDate !== 'string' ||
+          !ISO_DATE_REGEX.test(config.startingPositionDate)
+        ) {
+          throw new Error(
+            `Invalid ISO date format for startingPositionDate: ${config.startingPositionDate}. ` +
+            `Expected format: YYYY-MM-DDTHH:mm:ss.sssZ (config index: ${index})`
+          );
         }
-        startingPositionTimestamp = new Date(config.startingPositionDate).getTime() / 1000;
+
+        const date = new Date(config.startingPositionDate);
+        if (isNaN(date.getTime())) {
+          throw new Error(
+            `Invalid date value: ${config.startingPositionDate} (config index: ${index})`
+          );
+        }
+        startingPositionTimestamp = Math.floor(date.getTime() / 1000);
       }
 
       const eventSource = new ManagedKafkaEventSource({
@@ -954,37 +1004,110 @@ export class LambdaBuilder {
         maxBatchingWindow: cdk.Duration.seconds(
           config?.maximumBatchingWindow || 1
         ),
-        startingPosition:
-          config?.startingPosition || StartingPosition.TRIM_HORIZON,
+        startingPosition: isAtTimestamp
+          ? StartingPosition.AT_TIMESTAMP
+          : StartingPosition.TRIM_HORIZON,
         enabled: config?.enabled ?? true,
         consumerGroupId:
           config?.consumerGroupId ||
-          `lambda-${this.resourceName}-consumer-group`,
-        startingPositionTimestamp,
+          `lambda-${this.resourceName}-consumer-group-${index}`, // También usar índice aquí
+        startingPositionTimestamp: isAtTimestamp
+          ? startingPositionTimestamp
+          : undefined,
       });
 
       this.lambda.addEventSource(eventSource);
-    }
+    });
   }
 
+  /**
+   * Applies all stored Self-Managed Kafka trigger configurations to the Lambda function.
+   * This method processes each Self-Managed Kafka configuration and creates the corresponding
+   * event source with proper validation, error handling, and Dead Letter Queue (DLQ) support.
+   *
+   * For each configuration:
+   * - Validates the secret ARN format
+   * - Creates a Secrets Manager secret reference
+   * - Validates and converts timestamp if AT_TIMESTAMP starting position is used
+   * - Configures Dead Letter Queue (DLQ) destination if provided (SQS, SNS, or S3)
+   * - Creates a SelfManagedKafkaEventSource with the specified properties
+   * - Adds the event source to the Lambda function
+   *
+   * @private
+   * @throws {Error} If secretArn is invalid or missing
+   * @throws {Error} If startingPositionDate is missing when startingPosition is AT_TIMESTAMP
+   * @throws {Error} If startingPositionDate format is invalid (must be ISO 8601: YYYY-MM-DDTHH:mm:ss.sssZ)
+   * @throws {Error} If startingPositionDate value is invalid or cannot be parsed
+   * @throws {Error} If onFailure destinationType is invalid (must be 'sqs', 'sns', or 's3')
+   * @returns {void}
+   *
+   * @example
+   * // This method is called automatically during Lambda build process
+   * // when Self-Managed Kafka triggers have been configured via addSMKTrigger()
+   */
   private applySMKTriggers(): void {
+    // Constante para regex (mejor rendimiento - se compila una sola vez)
+    
+
     this.smkConfigs.forEach((config, index) => {
+      if (!config.secretArn || !config.secretArn.startsWith('arn:aws:secretsmanager:')) {
+        throw new Error(
+          `Invalid secretArn for Self-Managed Kafka config at index ${index}: ${config.secretArn}`
+        );
+      }
+
       const secret = secretsmanager.Secret.fromSecretCompleteArn(
         this.scope,
         `${this.resourceName}-kafka-secret-${index}`,
         config.secretArn
       );
 
-      // Prepare onFailure destination if provided
+      const isAtTimestamp = config.startingPosition === StartingPosition.AT_TIMESTAMP;
+      if (isAtTimestamp && !config.startingPositionDate) {
+        throw new Error(
+          `startingPositionDate is required when startingPosition is AT_TIMESTAMP (config index: ${index})`
+        );
+      }
+
+      let startingPositionTimestamp: number | undefined;
+      if (isAtTimestamp && config.startingPositionDate) {
+        if (
+          typeof config.startingPositionDate !== 'string' ||
+          !ISO_DATE_REGEX.test(config.startingPositionDate)
+        ) {
+          throw new Error(
+            `Invalid ISO date format for startingPositionDate: ${config.startingPositionDate}. ` +
+            `Expected format: YYYY-MM-DDTHH:mm:ss.sssZ (config index: ${index})`
+          );
+        }
+
+        const date = new Date(config.startingPositionDate);
+        if (isNaN(date.getTime())) {
+          throw new Error(
+            `Invalid date value: ${config.startingPositionDate} (config index: ${index})`
+          );
+        }
+        startingPositionTimestamp = Math.floor(date.getTime() / 1000);
+      }
+
       let onFailureDestination;
       if (config.onFailure?.destination) {
         const destinationArn = config.onFailure.destination;
         const destinationType = config.onFailure.destinationType;
-        
-        // Create the appropriate destination based on type
-        // CloudFormation will validate the ARN at deployment time
+
+        if (!destinationType) {
+          throw new Error(
+            `destinationType is required when onFailure destination is provided (config index: ${index})`
+          );
+        }
+
         switch (destinationType) {
           case 'sqs':
+            if (!destinationArn.startsWith('arn:aws:sqs:')) {
+              throw new Error(
+                `Invalid SQS ARN format for onFailure destination: ${destinationArn} (config index: ${index})`
+              );
+            }
             const queue = sqs.Queue.fromQueueArn(
               this.scope,
               `${this.resourceName}-smk-dlq-${index}`,
@@ -992,8 +1115,13 @@ export class LambdaBuilder {
             );
             onFailureDestination = new lambdaEventSources.SqsDlq(queue);
             break;
-          
+
           case 'sns':
+            if (!destinationArn.startsWith('arn:aws:sns:')) {
+              throw new Error(
+                `Invalid SNS ARN format for onFailure destination: ${destinationArn} (config index: ${index})`
+              );
+            }
             const topic = sns.Topic.fromTopicArn(
               this.scope,
               `${this.resourceName}-smk-dlq-${index}`,
@@ -1001,8 +1129,13 @@ export class LambdaBuilder {
             );
             onFailureDestination = new lambdaEventSources.SnsDlq(topic);
             break;
-          
+
           case 's3':
+            if (!destinationArn.startsWith('arn:aws:s3:')) {
+              throw new Error(
+                `Invalid S3 ARN format for onFailure destination: ${destinationArn} (config index: ${index})`
+              );
+            }
             const bucket = s3.Bucket.fromBucketArn(
               this.scope,
               `${this.resourceName}-smk-dlq-${index}`,
@@ -1010,11 +1143,15 @@ export class LambdaBuilder {
             );
             onFailureDestination = new lambdaEventSources.S3OnFailureDestination(bucket);
             break;
+
+          default:
+            throw new Error(
+              `Invalid destinationType: ${destinationType}. Must be 'sqs', 'sns', or 's3' (config index: ${index})`
+            );
         }
       }
 
       const eventSource = new SelfManagedKafkaEventSource({
-        // Base configuration
         bootstrapServers: config.bootstrapServers,
         topic: config.topic,
         authenticationMethod:
@@ -1025,14 +1162,16 @@ export class LambdaBuilder {
         maxBatchingWindow: cdk.Duration.seconds(
           config?.maximumBatchingWindow || 1
         ),
-        startingPosition:
-          config?.startingPosition || StartingPosition.TRIM_HORIZON,
+        startingPosition: isAtTimestamp
+          ? StartingPosition.AT_TIMESTAMP
+          : config?.startingPosition || StartingPosition.TRIM_HORIZON,
         enabled: config?.enabled ?? true,
         consumerGroupId:
           config?.consumerGroupId ||
-          `lambda-${this.resourceName}-consumer-group`,
-        
-        // Advanced options
+          `lambda-${this.resourceName}-consumer-group-${index}`,
+        startingPositionTimestamp: isAtTimestamp
+          ? startingPositionTimestamp
+          : undefined,
         onFailure: onFailureDestination,
       });
 

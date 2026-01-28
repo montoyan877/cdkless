@@ -291,22 +291,32 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
 
 - `clusterArn`: ARN of your Amazon MSK cluster
 - `topic`: Kafka topic to consume from
-- `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials
+- `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials (must start with `arn:aws:secretsmanager:`)
 - `batchSize`: Number of records to process in each batch (default: 10)
 - `maximumBatchingWindow`: Maximum time to wait for records in seconds (default: 1)
 - `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
   - `TRIM_HORIZON`: Start from the beginning of the topic
   - `LATEST`: Start from the latest records
-  - `AT_TIMESTAMP`: Start from a specific timestamp (requires `startingPositionDate`)
-- `startingPositionDate`: ISO String date for AT_TIMESTAMP starting position (format: YYYY-MM-DDTHH:mm:ss.sssZ)
+  - `AT_TIMESTAMP`: Start from a specific timestamp (**requires** `startingPositionDate`)
+- `startingPositionDate`: ISO 8601 date string for AT_TIMESTAMP starting position (**required** when `startingPosition` is `AT_TIMESTAMP`)
+  - Format: `YYYY-MM-DDTHH:mm:ss.sssZ` (must include timezone `Z`)
+  - Example: `"2024-01-01T00:00:00.000Z"`
+  - Validation: Must be a valid ISO 8601 date with timezone
 - `enabled`: Whether the trigger is enabled (default: true)
-- `consumerGroupId`: Custom consumer group ID (default: auto-generated)
+- `consumerGroupId`: Custom consumer group ID (default: auto-generated with unique index)
+
+**Validation and Error Handling:**
+
+- The `secretArn` is validated to ensure it's a valid AWS Secrets Manager ARN
+- When `startingPosition` is `AT_TIMESTAMP`, `startingPositionDate` is required and validated
+- Date format validation ensures strict ISO 8601 compliance with timezone
+- Invalid configurations throw descriptive errors with configuration index for easier debugging
 
 ##### Self-Managed Kafka Trigger Configuration
 
 - `bootstrapServers`: Array of Kafka broker URLs
 - `topic`: Kafka topic to consume from
-- `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials
+- `secretArn`: ARN of the AWS Secrets Manager secret containing Kafka credentials (must start with `arn:aws:secretsmanager:`)
 - `authenticationMethod`: Authentication method for Kafka (default: SASL_SCRAM_512_AUTH)
   - `SASL_SCRAM_512_AUTH`: SASL/SCRAM authentication with SHA-512
   - `SASL_SCRAM_256_AUTH`: SASL/SCRAM authentication with SHA-256
@@ -318,13 +328,29 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
 - `startingPosition`: Where to start reading from (default: TRIM_HORIZON)
   - `TRIM_HORIZON`: Start from the beginning of the topic
   - `LATEST`: Start from the latest records
-  - `AT_TIMESTAMP`: Start from a specific timestamp (requires `startingPositionDate`)
-- `startingPositionDate`: ISO String date for AT_TIMESTAMP starting position (format: YYYY-MM-DDTHH:mm:ss.sssZ)
+  - `AT_TIMESTAMP`: Start from a specific timestamp (**requires** `startingPositionDate`)
+- `startingPositionDate`: ISO 8601 date string for AT_TIMESTAMP starting position (**required** when `startingPosition` is `AT_TIMESTAMP`)
+  - Format: `YYYY-MM-DDTHH:mm:ss.sssZ` (must include timezone `Z`)
+  - Example: `"2024-01-01T00:00:00.000Z"`
+  - Validation: Must be a valid ISO 8601 date with timezone
 - `enabled`: Whether the trigger is enabled (default: true)
-- `consumerGroupId`: Custom consumer group ID (default: auto-generated)
+- `consumerGroupId`: Custom consumer group ID (default: auto-generated with unique index)
 - `onFailure`: Dead Letter Queue configuration for failed records. Supports SQS queues, SNS topics, or S3 buckets
   - `destination`: ARN of the DLQ resource (can be a literal string or CloudFormation token like `Fn.importValue()`)
-  - `destinationType`: Type of destination - **required**, must be `'sqs'`, `'sns'`, or `'s3'`
+    - Must be a valid ARN matching the destination type
+    - SQS: must start with `arn:aws:sqs:`
+    - SNS: must start with `arn:aws:sns:`
+    - S3: must start with `arn:aws:s3:`
+  - `destinationType`: Type of destination - **required** when `onFailure` is provided, must be `'sqs'`, `'sns'`, or `'s3'`
+
+**Validation and Error Handling:**
+
+- The `secretArn` is validated to ensure it's a valid AWS Secrets Manager ARN
+- When `startingPosition` is `AT_TIMESTAMP`, `startingPositionDate` is required and validated
+- Date format validation ensures strict ISO 8601 compliance with timezone
+- When `onFailure` is provided, `destinationType` is required
+- ARN format validation for DLQ destinations ensures they match the specified type
+- Invalid configurations throw descriptive errors with configuration index for easier debugging
 
 **Examples with Dead Letter Queue:**
 
@@ -366,6 +392,32 @@ app.lambda("src/handlers/orders/process-kafka-order").addSMKTrigger({
   }
 });
 ```
+
+**Common Errors and Solutions:**
+
+- **Error: "startingPositionDate is required when startingPosition is AT_TIMESTAMP"**
+  - Solution: Always provide `startingPositionDate` when using `AT_TIMESTAMP` starting position
+  - Example: `startingPosition: StartingPosition.AT_TIMESTAMP, startingPositionDate: "2024-01-01T00:00:00.000Z"`
+
+- **Error: "Invalid ISO date format for startingPositionDate"**
+  - Solution: Use strict ISO 8601 format with timezone: `YYYY-MM-DDTHH:mm:ss.sssZ`
+  - Valid: `"2024-01-01T00:00:00.000Z"`
+  - Invalid: `"2024-01-01T00:00:00"` (missing timezone), `"2024-01-01"` (missing time)
+
+- **Error: "Invalid secretArn for MSK/SMK config"**
+  - Solution: Ensure the ARN starts with `arn:aws:secretsmanager:` and is a complete ARN
+  - Valid: `"arn:aws:secretsmanager:us-east-1:123456789012:secret/my-secret"`
+  - Invalid: `"my-secret"` (not an ARN), `"arn:aws:secretsmanager:us-east-1"` (incomplete)
+
+- **Error: "destinationType is required when onFailure destination is provided"**
+  - Solution: Always specify `destinationType` when configuring `onFailure` DLQ
+  - Example: `onFailure: { destination: "...", destinationType: 'sqs' }`
+
+- **Error: "Invalid SQS/SNS/S3 ARN format for onFailure destination"**
+  - Solution: Ensure the ARN matches the destination type
+  - SQS: `arn:aws:sqs:region:account:queue-name`
+  - SNS: `arn:aws:sns:region:account:topic-name`
+  - S3: `arn:aws:s3:::bucket-name` or `arn:aws:s3:::bucket-name/prefix`
 
 ##### DynamoDB Streams Trigger Configuration
 
